@@ -16,6 +16,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 const leerBody = (req) => new Promise((r) => { let b = ""; req.on("data", (c) => (b += c)); req.on("end", () => r(b)); });
 
 /* ---------------- Claude ---------------- */
+const LIMITE_RPM = +process.env.IA_LIMITE_RPM || 0, peticiones = [];
 function respuestaIA(prompt, nImgs) {
   if (prompt.includes("lector de apuntes")) {
     return JSON.stringify({
@@ -62,6 +63,10 @@ http.createServer(async (req, res) => {
   // Formato OpenAI, el que usa la API de Gemini compatible con OpenAI (GEMINI_API_URL=http://localhost:4010/v1)
   if (req.method === "POST" && req.url === "/v1/chat/completions") {
     if (!/^Bearer .+/.test(req.headers.authorization || "")) { res.writeHead(401); return res.end('[{"error":{"code":401}}]') }
+    // IA_LIMITE_RPM=5 simula el límite por minuto del plan gratuito de Gemini
+    const ahora = Date.now(); while (peticiones.length && ahora - peticiones[0] > 60000) peticiones.shift();
+    if (LIMITE_RPM && peticiones.length >= LIMITE_RPM) { log("gemini 429 (límite por minuto)"); res.writeHead(429); return res.end('[{"error":{"code":429,"message":"Quota exceeded"}}]') }
+    peticiones.push(ahora);
     const b = JSON.parse(body);
     const parts = b.messages?.[0]?.content || [];
     const prompt = parts.filter((c) => c.type === "text").map((c) => c.text).join("\n");

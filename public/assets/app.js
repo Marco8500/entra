@@ -61,6 +61,29 @@ function parseJSON(text){
   throw new ApiError("json", "La respuesta ha salido mal formada. Vuelve a intentarlo.");
 }
 async function apiJSON(path, body, onText){ return parseJSON(await api(path, body, onText)) }
+// La IA gratuita limita las peticiones por minuto: si está saturada, esperamos y reintentamos
+const dormir = (ms) => new Promise((ok, ko) => {
+  const t = setTimeout(ok, ms);
+  ctl?.signal.addEventListener("abort", () => { clearTimeout(t); ko(new DOMException("Cancelado", "AbortError")) }, { once: true });
+});
+async function apiIA(path, body, onText){
+  for (let intento = 0; ; intento++) {
+    try { return await apiJSON(path, body, onText) }
+    catch (e) {
+      const saturada = e.code === "ocupado" && intento < 3, fallo = (e.code === "ia" || e.code === "json") && intento < 1;
+      if (!saturada && !fallo) throw e;
+      for (let s = saturada ? 20 * (intento + 1) : 3; s > 0; s--) { setBusySub(`La IA va saturada. Reintento en ${s} s…`); await dormir(1000) }
+    }
+  }
+}
+// Ejecuta las tareas con un máximo de n a la vez (en orden de inicio)
+async function enParalelo(tareas, n){
+  const res = new Array(tareas.length); let sig = 0;
+  await Promise.all(Array.from({ length: Math.min(n, tareas.length) }, async () => { while (sig < tareas.length) { const i = sig++; res[i] = await tareas[i]() } }));
+  return res;
+}
+// Los errores de cuenta (límites, sesión) paran todo; los de la IA solo pierden ese trozo
+const soloIA = (e) => { if (e?.name === "AbortError" || e?.status) throw e; return null };
 
 async function refreshCuenta(){
   try { S.cuenta = await api("/api/cuenta") } catch (e) { S.cuenta = null }
@@ -314,8 +337,10 @@ async function analyze(){
     for (let i = 0; i < S.files.length; i++) { setBusySub(`Preparando foto ${i + 1} de ${S.files.length}`); fotos.push(await comprimir(S.files[i])) }
     const lotes = []; for (let i = 0; i < fotos.length; i += 4) lotes.push(fotos.slice(i, i + 4));
     if (!lotes.length) lotes.push([]);
-    let hechos = 0; setBusySub(`Leyendo ${fotos.length || "el texto"}${fotos.length ? " páginas" : ""}…`);
-    const outs = await Promise.all(lotes.map((lote, i) => apiJSON("/api/leer", { fotos: lote, texto: i === 0 ? S.pasted : "" }).then(r => { hechos++; setBusySub(`Leído ${hechos} de ${lotes.length} bloques`); return r })));
+    let hechos = 0, sinLeer = 0, ultimoError = null; setBusySub(`Leyendo ${fotos.length || "el texto"}${fotos.length ? " páginas" : ""}…`);
+    const outs = await enParalelo(lotes.map((lote, i) => () => apiIA("/api/leer", { fotos: lote, texto: i === 0 ? S.pasted : "" })
+      .then(r => { hechos++; setBusySub(`Leído ${hechos} de ${lotes.length} bloques`); return r }, e => { ultimoError = e; soloIA(e); sinLeer += lote.length || 1; return null })), 2);
+    if (!outs.some(Boolean)) throw ultimoError || new ApiError("ia", "La IA ha fallado. Vuelve a intentarlo.");
     const map = new Map(); let asig = "";
     for (const out of outs) {
       if (out?.asignatura && !asig) asig = String(out.asignatura);
@@ -332,6 +357,7 @@ async function analyze(){
     await guardarApuntes();
     refreshCuenta();
     go("topics");
+    if (sinLeer) flash(`No he podido leer ${sinLeer} ${sinLeer === 1 ? "foto" : "fotos"} porque la IA iba saturada. Puedes subirlas otra vez dentro de un minuto.`, "notice");
   } catch (e) { fail("home", e) }
 }
 async function guardarApuntes(){
@@ -435,11 +461,12 @@ async function generate(only){
     const total = f.test + f.cortas; const counts = bloques.map(() => 0);
     const show = () => setBusySub(`${Math.min(total, counts.reduce((a, b) => a + b, 0))} de ${total} preguntas`);
     // el primer bloque cuenta el simulacro; esperamos a que arranque para no gastar dos
-    const pedir = (b, i) => apiJSON("/api/examen", { ...b, opciones: f.opciones, nuevo: i === 0 },
-      (txt) => { counts[i] = (txt.match(/"pregunta"/g) || []).length; show() });
-    const first = pedir(bloques[0], 0);
-    const rest = bloques.slice(1).map((b, i) => new Promise(r => setTimeout(r, 400 * (i + 1))).then(() => pedir(b, i + 1)));
-    const outs = await Promise.all([first, ...rest]);
+    // el primero sale antes que los demás (es el que cuenta el simulacro); como mucho 3 a la vez
+    let ultimoError = null;
+    const pedir = (b, i) => apiIA("/api/examen", { ...b, opciones: f.opciones, nuevo: i === 0 },
+      (txt) => { counts[i] = (txt.match(/"pregunta"/g) || []).length; show() }).catch(e => { ultimoError = e; return soloIA(e) });
+    const outs = await enParalelo(bloques.map((b, i) => () => pedir(b, i)), 3);
+    if (!outs.some(Boolean)) throw ultimoError || new ApiError("ia", "La IA ha fallado. Vuelve a intentarlo.");
     const test = [], cortas = [], vistas = new Set();
     for (const out of outs) {
       for (const q of (out?.test || [])) {
@@ -532,7 +559,7 @@ async function submit(auto){
     ctl = new AbortController();
     busy("Corrigiendo tus respuestas…", auto ? "Se acabó el tiempo" : "Como lo haría tu profe");
     try {
-      const out = await apiJSON("/api/corregir", { preguntas: cortas.map((q, i) => ({ ...q, respuesta: resp[i] })) });
+      const out = await apiIA("/api/corregir", { preguntas: cortas.map((q, i) => ({ ...q, respuesta: resp[i] })) });
       shortRes = cortas.map((q, i) => { const r = (Array.isArray(out) ? out : []).find(x => +x.i === i); return resp[i] ? { nota: Math.max(0, Math.min(10, +r?.nota || 0)), comentario: String(r?.comentario || "") } : { nota: 0, comentario: "Sin responder." } });
     } catch (e) {
       shortRes = cortas.map((q, i) => resp[i] ? porClaves(q, resp[i]) : { nota: 0, comentario: "Sin responder." });
@@ -602,7 +629,7 @@ async function buildReview(){
   ctl = new AbortController();
   busy("Preparando tu repaso…", "Solo de lo que has fallado");
   try {
-    const out = await apiJSON("/api/repaso", { asignatura: S.subject, temas, fallos });
+    const out = await apiIA("/api/repaso", { asignatura: S.subject, temas, fallos });
     S.review = (Array.isArray(out) ? out : []).map(r => ({ tema: String(r.tema || ""), resumen: String(r.resumen || ""), claves: (r.claves || []).map(String), busquedas: (r.busquedas || []).map(String).slice(0, 3) }));
     if (!S.review.length) throw new ApiError("json", "No se ha podido preparar el repaso. Vuelve a intentarlo.");
     go("review");
