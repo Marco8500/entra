@@ -20,7 +20,7 @@ window.ENTRA_CONFIG = ENTRA_LOCAL
       CONTACTO: "hola@tudominio.com",
       // Stripe → Desarrolladores → Claves de API → "Clave publicable" (pk_test_... / pk_live_...).
       // Con ella el pago se hace dentro de la web; si se deja vacía, se usa la página de pago de Stripe.
-      STRIPE_PUBLISHABLE_KEY: "",
+      STRIPE_PUBLISHABLE_KEY: "pk_test_51USvvsHbezUyl81ZHnu4gAGTesEu82ZtstwaEx7BYqsFiWEVihs7W1cEgauK12TCfDcq9GhnTxcl2Jk96DqeXUTK000rWl47Sv",
       // Ponlo a true cuando tengas SMTP propio y la plantilla supabase/templates/codigo.html en Supabase:
       // el email llevará un código de 6 cifras para escribir en la web. Con false, se entra con el botón del email.
       CODIGO_EN_EMAIL: false,
