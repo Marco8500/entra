@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 
 export const LIMITES = {
+  invitado: { simulacros: 1, paginas: 5, bloques: 6 }, // prueba sin email (usuario anónimo de Supabase)
   free: { simulacros: 3, paginas: 15, bloques: 20 },
   pro: { simulacros: 60, paginas: 300, bloques: 400 },
 };
@@ -28,6 +29,16 @@ export const error = (code, mensaje, status = 400) => json({ error: code, mensaj
 
 export const mesActual = () => new Date().toISOString().slice(0, 7);
 
+export const planDe = (user, perfil) => (user.is_anonymous ? "invitado" : perfil?.plan === "pro" ? "pro" : "free");
+
+/** Mensaje y código de error cuando se acaba el cupo del mes */
+export function errorLimite(plan, que, n, nombre = que) {
+  if (plan === "invitado")
+    return error("limite_invitado", "Ya has hecho tu simulacro de prueba. Guarda tu cuenta con tu email para seguir gratis: no pierdes nada de lo que has hecho.", 402);
+  if (plan === "pro") return error(`limite_${que}`, `Has llegado al máximo de ${nombre} de este mes.`, 402);
+  return error(`limite_${que}`, `El plan gratis incluye ${n} ${nombre} al mes. Pásate a Pro para seguir.`, 402);
+}
+
 /** Comprueba el token de Supabase y devuelve {user, plan, uso, limite} o una Response de error */
 export async function autenticar(req) {
   const token = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
@@ -38,7 +49,7 @@ export async function autenticar(req) {
   const user = data.user;
   const { data: perfil } = await db.from("perfiles").select("plan, acepto_terminos_at").eq("id", user.id).maybeSingle();
   if (!perfil?.acepto_terminos_at) return { fallo: error("terminos", "Acepta los términos para usar Entra.", 403) };
-  const plan = perfil?.plan === "pro" ? "pro" : "free";
+  const plan = planDe(user, perfil);
   const { data: uso } = await db.from("uso").select("simulacros, paginas, bloques").eq("user_id", user.id).eq("mes", mesActual()).maybeSingle();
   return { user, plan, db, uso: uso || { simulacros: 0, paginas: 0, bloques: 0 }, limite: LIMITES[plan] };
 }

@@ -1,6 +1,6 @@
 // POST /api/examen · genera un bloque de preguntas (el navegador pide varios bloques en paralelo)
 // body: { temas:[{titulo,contenido,notas}], test:n, cortas:n, opciones:n, bloque:i, nuevo:bool, evitar:[preguntas] }
-import { autenticar, error, streamClaude, sumarUso, texto } from "../lib/entra.mjs";
+import { autenticar, error, errorLimite, streamClaude, sumarUso, texto } from "../lib/entra.mjs";
 
 export default async (req) => {
   if (req.method !== "POST") return error("metodo", "Usa POST.", 405);
@@ -21,12 +21,10 @@ export default async (req) => {
   // Cuenta un simulacro solo con el primer bloque de un examen nuevo
   const cuenta = b.nuevo === true;
   if (cuenta && a.uso.simulacros >= a.limite.simulacros)
-    return error("limite_simulacros", a.plan === "pro"
-      ? "Has llegado al máximo de simulacros de este mes."
-      : `El plan gratis incluye ${a.limite.simulacros} simulacros al mes. Pásate a Pro para seguir.`, 402);
+    return errorLimite(a.plan, "simulacros", a.limite.simulacros);
 
   if (a.uso.bloques >= a.limite.bloques)
-    return error("limite_simulacros", "Has llegado al máximo de preguntas de este mes.", 402);
+    return a.plan === "invitado" ? errorLimite(a.plan) : error("limite_simulacros", "Has llegado al máximo de preguntas de este mes.", 402);
 
   const evitar = (Array.isArray(b.evitar) ? b.evitar : []).slice(0, 60).map((x) => "- " + texto(x, 200)).join("\n");
   const lista = temas.map((t, i) => `TEMA ${i + 1}: ${t.titulo}${t.notas ? ` [anotación del alumno: ${t.notas}]` : ""}\n${t.contenido}`).join("\n\n");

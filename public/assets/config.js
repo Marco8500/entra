@@ -9,10 +9,15 @@ window.ENTRA_CONFIG = ENTRA_LOCAL
       SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0",
       PRECIO_PRO: "3,99 €/mes",
       CONTACTO: "hola@tudominio.com",
+      STRIPE_PUBLISHABLE_KEY: "pk_test_local",
+      STRIPE_JS: "http://localhost:4020/stripe.js", // Stripe.js simulado por dev/mocks.mjs
     }
   : {
       SUPABASE_URL: "https://pabuoxrtijtldxzmyeqn.supabase.co",
       SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhYnVveHJ0aWp0bGR4em15ZXFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI5NTI2NTcsImV4cCI6MjEwODUyODY1N30.UnKRD0tSAlfTcpHd8S0GO4Mw9s9310OnIsXxxa2FLZU",
       PRECIO_PRO: "3,99 €/mes",
       CONTACTO: "hola@tudominio.com",
+      // Stripe → Desarrolladores → Claves de API → "Clave publicable" (pk_test_... / pk_live_...).
+      // Con ella el pago se hace dentro de la web; si se deja vacía, se usa la página de pago de Stripe.
+      STRIPE_PUBLISHABLE_KEY: "",
     };

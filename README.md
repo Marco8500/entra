@@ -28,7 +28,8 @@ Compra el dominio (por ejemplo `entra.app`, `entraexamen.com` o `usaentra.com`).
    - Site URL: `https://tudominio.com`
    - Redirect URLs: `https://tudominio.com/app` y `https://*.netlify.app/app`
 5. **Authentication → Email**: el email por defecto de Supabase tiene un límite bajo de envíos. Antes de lanzar, configura **SMTP propio** (Resend, Brevo…) en *Authentication → SMTP Settings*, y traduce la plantilla del email a español en *Email Templates*.
-6. (Opcional) Login con Google: *Authentication → Providers → Google*. Si no lo configuras, quita el botón "Continuar con Google" de `public/assets/app.js`.
+6. **Authentication → Sign In / Providers → "Allow anonymous sign-ins"**: actívalo. Es lo que permite hacer el primer simulacro sin email (plan "invitado", límites en `LIMITES.invitado`). Después la app le pide el email para guardar la cuenta sin perder nada. Para evitar abusos, Supabase limita los accesos anónimos por IP; si ves abuso, activa el CAPTCHA en *Authentication → Attack Protection*.
+7. (Opcional) Login con Google: *Authentication → Providers → Google*. Si no lo configuras, quita el botón "Continuar con Google" de `public/assets/app.js`.
 
 ## 3. API de Claude (la IA)
 1. Crea una cuenta en [console.anthropic.com](https://console.anthropic.com), añade saldo y crea una **API key**.
@@ -41,7 +42,7 @@ Compra el dominio (por ejemplo `entra.app`, `entraexamen.com` o `usaentra.com`).
 ## 4. Stripe (pagos)
 1. Crea cuenta en [stripe.com](https://stripe.com) y empieza en **modo prueba**.
 2. **Productos → Añadir producto**: "Entra Pro", precio recurrente mensual (p. ej. 3,99 €). Copia el **ID del precio** (`price_...`) → `STRIPE_PRICE_ID`.
-3. **Desarrolladores → Claves de API**: copia la clave secreta (`sk_...`) → `STRIPE_SECRET_KEY`.
+3. **Desarrolladores → Claves de API**: copia la clave secreta (`sk_...`) → `STRIPE_SECRET_KEY`, y la **clave publicable** (`pk_...`) → `STRIPE_PUBLISHABLE_KEY` en `config.js`. Con la publicable, el pago se hace dentro de la web (Checkout integrado) y no se vuelve a pedir el email; sin ella, se usa la página de pago de Stripe.
 4. **Desarrolladores → Webhooks → Añadir endpoint**:
    - URL: `https://tudominio.com/api/stripe-webhook`
    - Eventos: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`

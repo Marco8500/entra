@@ -1,6 +1,7 @@
 // Simuladores SOLO para desarrollo local (no se despliegan):
 //  - API de Claude en http://localhost:4010  → respuestas en streaming con el mismo formato que Anthropic
-//  - API de Stripe  en http://localhost:4020  → Checkout, portal y suscripciones, y envía webhooks firmados
+//  - API de Stripe  en http://localhost:4020  → clientes, Checkout (página o integrado), portal y suscripciones,
+//    webhooks firmados, y un Stripe.js simulado en /stripe.js
 // Uso: node dev/mocks.mjs   (lee STRIPE_WEBHOOK_SECRET, WEBHOOK_URL y WEBHOOK_DELAY_MS del entorno)
 import http from "node:http";
 import Stripe from "stripe";
@@ -99,10 +100,19 @@ http.createServer(async (req, res) => {
     log("stripe", req.method, url.pathname);
   }
 
+  if (req.method === "POST" && url.pathname === "/v1/customers") {
+    const c = { id: id("cus"), object: "customer", email: f.email || null, metadata: { user_id: f["metadata[user_id]"] } };
+    clientes.set(c.id, c.email);
+    return sJSON(res, c);
+  }
   if (req.method === "POST" && url.pathname === "/v1/checkout/sessions") {
     if (f.mode !== "subscription" || !f["line_items[0][price]"]?.startsWith("price_")) return sJSON(res, { error: { message: "price no válido" } }, 400);
-    const s = { id: id("cs_test"), object: "checkout.session", mode: f.mode, client_reference_id: f.client_reference_id, customer: f.customer || null, customer_email: f.customer_email || null, success_url: f.success_url, cancel_url: f.cancel_url, metadata: { user_id: f["metadata[user_id]"] } };
-    s.url = `http://localhost:4020/pay/${s.id}`; sesiones.set(s.id, s);
+    if (f.customer && !clientes.has(f.customer)) return sJSON(res, { error: { message: "No such customer" } }, 400);
+    const embebido = f.ui_mode === "embedded";
+    if (embebido ? !f.return_url || f.success_url : !f.success_url) return sJSON(res, { error: { message: "return_url solo con ui_mode=embedded" } }, 400);
+    const s = { id: id("cs_test"), object: "checkout.session", mode: f.mode, ui_mode: embebido ? "embedded" : "hosted", client_reference_id: f.client_reference_id, customer: f.customer || null, customer_email: f.customer_email || clientes.get(f.customer) || null, success_url: f.success_url || f.return_url, cancel_url: f.cancel_url, metadata: { user_id: f["metadata[user_id]"] } };
+    if (embebido) s.client_secret = `${s.id}_secret_mock`; else s.url = `http://localhost:4020/pay/${s.id}`;
+    sesiones.set(s.id, s);
     return sJSON(res, s);
   }
   if (req.method === "POST" && url.pathname === "/v1/billing_portal/sessions") {
@@ -119,22 +129,34 @@ http.createServer(async (req, res) => {
     return sJSON(res, s);
   }
 
-  // Página de pago simulada (sustituye a checkout.stripe.com)
+  // Stripe.js simulado: initEmbeddedCheckout monta un iframe con la página de pago
+  if (url.pathname === "/stripe.js") {
+    res.writeHead(200, { "content-type": "text/javascript" });
+    return res.end(`window.Stripe = (pk) => ({ initEmbeddedCheckout: async ({ fetchClientSecret }) => {
+      const id = (await fetchClientSecret()).split("_secret_")[0]; let f;
+      return { mount(el) { f = document.createElement("iframe"); f.id = "stripe-embedded"; f.src = "http://localhost:4020/pay/" + id + "?embebido=1"; f.style.cssText = "width:100%;height:420px;border:0"; el.append(f) }, destroy() { f?.remove() } };
+    } });`);
+  }
+  // Página de pago simulada (sustituye a checkout.stripe.com o al formulario integrado)
   const pay = url.pathname.match(/^\/pay\/(\w+)$/);
   if (pay) {
     const s = sesiones.get(pay[1]); if (!s) { res.writeHead(404); return res.end("Sesión no encontrada") }
     if (req.method === "POST") {
-      if (f.card !== "4242424242424242") { res.writeHead(402, { "content-type": "text/html; charset=utf-8" }); return res.end("<p id=err>Tarjeta rechazada</p>") }
+      if (f.card !== "4242424242424242" || !f.name) { res.writeHead(402, { "content-type": "text/html; charset=utf-8" }); return res.end("<p id=err>Tarjeta rechazada</p>") }
       s.customer ||= id("cus"); clientes.set(s.customer, s.customer_email);
       const sub = { id: id("sub"), object: "subscription", customer: s.customer, status: "active", metadata: s.metadata };
       subs.set(sub.id, sub); s.subscription = sub.id; s.status = "complete"; s.payment_status = "paid";
       const enviar = () => webhook("checkout.session.completed", s);
       if (RETRASO) setTimeout(enviar, RETRASO); else await enviar();
+      if (s.ui_mode === "embedded") { res.writeHead(200, { "content-type": "text/html" }); return res.end(`<script>top.location.href = ${JSON.stringify(s.success_url)}</script>`) }
       res.writeHead(303, { location: s.success_url }); return res.end();
     }
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    // Con un cliente ya creado no se pide el email (igual que Stripe)
     return res.end(`<!doctype html><meta charset=utf-8><title>Stripe Checkout (simulado)</title><h1>Entra Pro · 3,99 €/mes (MODO PRUEBA)</h1>
-      <p>${s.customer_email || s.customer}</p><form method=post><input name=card id=card placeholder="4242 4242 4242 4242"><button id=paybtn>Suscribirse</button></form><a id=cancel href="${s.cancel_url}">Volver</a>`);
+      <p id=emailinfo>${s.customer_email || ""}</p><form method=post>${s.customer ? "" : "<input name=email id=email placeholder=Email>"}
+      <input name=name id=name placeholder="Nombre completo"><input name=address id=address placeholder="Dirección">
+      <input name=card id=card placeholder="4242 4242 4242 4242"><button id=paybtn>Suscribirse</button></form>${s.cancel_url ? `<a id=cancel href="${s.cancel_url}">Volver</a>` : ""}`);
   }
   // Portal de cliente simulado
   const portal = url.pathname.match(/^\/portal\/(\w+)$/);

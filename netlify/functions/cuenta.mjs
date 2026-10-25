@@ -1,5 +1,5 @@
 // GET /api/cuenta · plan y uso del mes para mostrar en la app
-import { admin, error, json, LIMITES, mesActual } from "../lib/entra.mjs";
+import { admin, error, json, LIMITES, mesActual, planDe } from "../lib/entra.mjs";
 
 export default async (req) => {
   const token = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
@@ -9,7 +9,7 @@ export default async (req) => {
   if (!user) return error("no_auth", "Inicia sesión para continuar.", 401);
   const { data: perfil } = await db.from("perfiles").select("plan, acepto_terminos_at").eq("id", user.id).maybeSingle();
   const { data: uso } = await db.from("uso").select("simulacros, paginas").eq("user_id", user.id).eq("mes", mesActual()).maybeSingle();
-  const plan = perfil?.plan === "pro" ? "pro" : "free";
+  const plan = planDe(user, perfil);
   return json({
     email: user.email,
     plan,

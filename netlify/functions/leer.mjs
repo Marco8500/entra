@@ -1,5 +1,5 @@
 // POST /api/leer · lee fotos y/o texto de apuntes y devuelve los temas (JSON en streaming)
-import { autenticar, error, streamClaude, sumarUso, texto } from "../lib/entra.mjs";
+import { autenticar, error, errorLimite, streamClaude, sumarUso, texto } from "../lib/entra.mjs";
 
 const MAX_FOTOS = 4;
 const TIPOS = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -33,9 +33,7 @@ export default async (req) => {
   }
   const paginas = Math.max(1, fotos.length);
   if (a.uso.paginas + paginas > a.limite.paginas)
-    return error("limite_paginas", a.plan === "pro"
-      ? "Has llegado al máximo de páginas de este mes."
-      : `El plan gratis incluye ${a.limite.paginas} páginas al mes. Pásate a Pro para seguir.`, 402);
+    return errorLimite(a.plan, "paginas", a.limite.paginas, "páginas");
 
   const content = [
     ...fotos.map((f) => ({ type: "image", source: { type: "base64", media_type: f.tipo, data: f.base64 } })),

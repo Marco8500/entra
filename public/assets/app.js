@@ -70,16 +70,21 @@ function drawAccount(){
   const box = $("#account"); const c = S.cuenta;
   if (!c || !S.session) { box.hidden = true; return }
   box.hidden = false;
-  box.innerHTML = `<span class="pill ${c.plan === "pro" ? "pro" : ""}">${c.plan === "pro" ? "Pro" : "Gratis"}</span>
+  box.innerHTML = `<span class="pill ${c.plan === "pro" ? "pro" : ""}">${{ pro: "Pro", invitado: "Prueba" }[c.plan] || "Gratis"}</span>
     <span>Simulacros <b>${c.uso.simulacros}/${c.limite.simulacros}</b></span>
     <span>Páginas <b>${c.uso.paginas}/${c.limite.paginas}</b></span>
-    ${c.plan === "pro" ? `<button class="btn btn-ghost btn-sm" id="portal">Gestionar suscripción</button>` : `<button class="btn btn-hl btn-sm" id="goPro">Pasarme a Pro · ${esc(CFG.PRECIO_PRO || "")}</button>`}`;
+    ${c.plan === "pro" ? `<button class="btn btn-ghost btn-sm" id="portal">Gestionar suscripción</button>`
+      : c.plan === "invitado" ? `<button class="btn btn-hl btn-sm" id="guardar">Guardar mi cuenta</button>`
+      : `<button class="btn btn-hl btn-sm" id="goPro">Pasarme a Pro · ${esc(CFG.PRECIO_PRO || "")}</button>`}`;
   const gp = $("#goPro"); if (gp) gp.onclick = () => pagar("suscribir");
   const pt = $("#portal"); if (pt) pt.onclick = () => pagar("portal");
+  const gu = $("#guardar"); if (gu) gu.onclick = () => go("guardar");
 }
 async function pagar(accion){
+  if (accion === "suscribir" && S.cuenta?.plan === "invitado") return go("guardar");
+  if (accion === "suscribir" && CFG.STRIPE_PUBLISHABLE_KEY) return go("pago");
   try { ctl = null; const { url } = await api("/api/pago", { accion }); location.href = url }
-  catch (e) { flash(e.message) }
+  catch (e) { e.code === "necesita_email" ? go("guardar") : flash(e.message) }
 }
 function flash(msg, kind = "error"){
   const box = $("#msg"); if (box) box.innerHTML = `<div class="${kind}">${esc(msg)}</div>`;
@@ -87,10 +92,10 @@ function flash(msg, kind = "error"){
 }
 
 /* ============ navegación ============ */
-function go(v){ S.view = v; render(); window.scrollTo({ top: 0, behavior: "instant" }) }
+function go(v){ if (S.checkout && v !== "pago") { S.checkout.destroy(); S.checkout = null } S.view = v; render(); window.scrollTo({ top: 0, behavior: "instant" }) }
 function render(){
   document.querySelectorAll("#steps span").forEach(s => s.classList.toggle("on", s.dataset.s === (S.view === "review" ? "results" : S.view)));
-  const V = { login: vLogin, terms: vTerms, home: vHome, topics: vTopics, format: vFormat, exam: vExam, results: vResults, review: vReview, busy: vBusy }[S.view];
+  const V = { login: vLogin, terms: vTerms, guardar: vGuardar, pago: vPago, home: vHome, topics: vTopics, format: vFormat, exam: vExam, results: vResults, review: vReview, busy: vBusy }[S.view];
   if (!V) return;
   $("#view").innerHTML = ""; $("#view").append(V());
 }
@@ -111,7 +116,8 @@ function fail(where, e){
   const isLimit = e?.status === 402;
   requestAnimationFrame(() => {
     flash(e?.message || "Algo ha fallado.");
-    if (isLimit && S.cuenta?.plan !== "pro") { const m = $("#msg") || $("#view"); m.append(h(`<button class="btn btn-hl" style="margin-top:10px" id="limPro">Pasarme a Pro</button>`)); $("#limPro").onclick = () => pagar("suscribir") }
+    if (e?.code === "limite_invitado") { const m = $("#msg") || $("#view"); m.append(h(`<button class="btn btn-hl" style="margin-top:10px" id="limG">Guardar mi cuenta con mi email</button>`)); $("#limG").onclick = () => go("guardar") }
+    else if (isLimit && S.cuenta?.plan !== "pro") { const m = $("#msg") || $("#view"); m.append(h(`<button class="btn btn-hl" style="margin-top:10px" id="limPro">Pasarme a Pro</button>`)); $("#limPro").onclick = () => pagar("suscribir") }
     refreshCuenta();
   });
 }
@@ -119,8 +125,11 @@ function fail(where, e){
 /* ============ login y términos ============ */
 function vLogin(){
   const el = h(`<section class="sheet">
-    <span class="eyebrow">Entrar</span>
-    <h2 style="font-size:28px">Entra con tu email</h2>
+    <span class="eyebrow">Empieza</span>
+    <h2 style="font-size:28px">Haz tu primer simulacro</h2>
+    <p class="muted">Gratis y sin registrarte. Si te gusta, luego guardas tu cuenta con tu email.</p>
+    <button class="btn btn-hl" id="anon">Empezar sin registrarme</button>
+    <div class="sep">o entra con tu email</div>
     <p class="muted">Te mandamos un enlace para entrar. Sin contraseñas.</p>
     <form id="f" style="display:flex;flex-direction:column;gap:12px">
       <label class="field" for="email">Email<input type="email" id="email" required autocomplete="email" placeholder="tu@email.com"></label>
@@ -135,6 +144,10 @@ function vLogin(){
     const email = $("#email", el).value.trim();
     const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + "/app" + location.search } });
     $("#msg", el).innerHTML = error ? `<div class="error">${esc(error.message)}</div>` : `<div class="notice">Mira tu correo (${esc(email)}) y pulsa el enlace para entrar.</div>`;
+  };
+  $("#anon", el).onclick = async () => {
+    const { error } = await sb.auth.signInAnonymously();
+    if (error) $("#msg", el).innerHTML = `<div class="error">No se ha podido empezar la prueba. Entra con tu email.</div>`;
   };
   $("#google", el).onclick = () => sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: location.origin + "/app" + location.search } });
   return el;
@@ -156,6 +169,63 @@ function vTerms(){
     if (error) return $("#msg", el).innerHTML = `<div class="error">No se ha podido guardar. Vuelve a intentarlo.</div>`;
     await refreshCuenta(); afterLogin();
   };
+  return el;
+}
+
+/* ============ guardar cuenta de prueba (anónima → email) ============ */
+function vGuardar(){
+  const el = h(`<section class="sheet">
+    <span class="eyebrow">Guarda tu cuenta</span>
+    <h2 style="font-size:26px">Sigue gratis con tu email</h2>
+    <p class="muted">Tus apuntes y tus resultados se quedan. Con la cuenta gratis tienes 3 simulacros al mes y puedes pasarte a Pro cuando quieras.</p>
+    <form id="f" style="display:flex;flex-direction:column;gap:12px">
+      <label class="field" for="email">Email<input type="email" id="email" required autocomplete="email" placeholder="tu@email.com"></label>
+      <button class="btn btn-primary" type="submit">Guardar mi cuenta</button>
+    </form>
+    <div id="msg"></div>
+    <button class="btn btn-ghost" id="back">Ahora no</button>
+  </section>`);
+  $("#f", el).onsubmit = async (e) => {
+    e.preventDefault();
+    const email = $("#email", el).value.trim();
+    const { data, error } = await sb.auth.updateUser({ email }, { emailRedirectTo: location.origin + "/app" });
+    if (error) return $("#msg", el).innerHTML = `<div class="error">${esc(/registered|exists/i.test(error.message) ? "Ese email ya tiene cuenta. Cierra sesión y entra con él." : error.message)}</div>`;
+    if (data.user?.email === email) { await refreshCuenta(); await loadHistorial(); go("home"); return flash("¡Cuenta guardada! Ya puedes seguir.", "notice") } // sin confirmación por email
+    $("#msg", el).innerHTML = `<div class="notice">Te hemos enviado un enlace a ${esc(email)}. Ábrelo para confirmar y tu cuenta quedará guardada.</div>`;
+  };
+  $("#back", el).onclick = () => go("home");
+  return el;
+}
+
+/* ============ pago dentro de la web (Stripe Embedded Checkout) ============ */
+let stripeJs = null;
+const cargarStripe = () => stripeJs ??= new Promise((ok, ko) => {
+  const s = document.createElement("script"); s.src = CFG.STRIPE_JS || "https://js.stripe.com/v3/";
+  s.onload = () => ok(window.Stripe(CFG.STRIPE_PUBLISHABLE_KEY)); s.onerror = () => { stripeJs = null; ko(new Error("No se ha podido cargar el pago.")) };
+  document.head.append(s);
+});
+function vPago(){
+  const el = h(`<section class="sheet">
+    <span class="eyebrow">Entra Pro · ${esc(CFG.PRECIO_PRO || "")}</span>
+    <h2 style="font-size:26px">Pásate a Pro</h2>
+    <p class="muted small">Pago seguro con Stripe. Cancela cuando quieras desde "Gestionar suscripción".</p>
+    <div id="checkout" style="min-height:420px"><div class="loading"><div class="pen" aria-hidden="true"></div><p class="muted">Cargando el pago…</p></div></div>
+    <div id="msg"></div>
+    <button class="btn btn-ghost" id="back">Volver</button>
+  </section>`);
+  $("#back", el).onclick = () => go("home");
+  (async () => {
+    try {
+      ctl = null;
+      const [stripe, { clientSecret }] = await Promise.all([cargarStripe(), api("/api/pago", { accion: "suscribir", embebido: true })]);
+      if (S.view !== "pago") return;
+      S.checkout = await stripe.initEmbeddedCheckout({ fetchClientSecret: async () => clientSecret });
+      $("#checkout", el).innerHTML = ""; S.checkout.mount($("#checkout", el));
+    } catch (e) {
+      if (e.code === "necesita_email") return go("guardar");
+      $("#checkout", el).innerHTML = ""; $("#msg", el).innerHTML = `<div class="error">${esc(e.message)}</div>`;
+    }
+  })();
   return el;
 }
 
@@ -581,7 +651,10 @@ async function afterLogin(){
 async function esperarPro(){
   for (let i = 0; i < 10 && S.cuenta?.plan !== "pro"; i++) { await new Promise(r => setTimeout(r, 2000)); await refreshCuenta() }
 }
-$("#logout").onclick = () => sb.auth.signOut();
+$("#logout").onclick = () => {
+  if (S.cuenta?.plan === "invitado" && !confirm("No has guardado tu cuenta con un email: si cierras sesión perderás tus apuntes y resultados. ¿Cerrar igualmente?")) return;
+  sb.auth.signOut();
+};
 $("#delAcc").onclick = () => {
   const box = $("#delBox");
   box.innerHTML = `<div class="error" style="display:flex;flex-direction:column;gap:10px">Se borrarán tu cuenta, tus apuntes y tus resultados, y se cancelará Pro si lo tienes. No se puede deshacer.<div class="row"><button class="btn btn-ghost" id="dNo">Cancelar</button><button class="btn btn-primary" id="dYes">Borrar todo</button></div></div>`;
