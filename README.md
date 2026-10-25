@@ -37,7 +37,7 @@ Entra funciona con **Google Gemini** (tiene plan gratuito) o con **Claude** (de 
 **Gemini (por defecto):**
 1. Entra en [aistudio.google.com/apikey](https://aistudio.google.com/apikey) con tu cuenta de Google → **Create API key**. No pide tarjeta.
 2. En Netlify pon `GEMINI_API_KEY` con esa clave.
-3. Modelos: `IA_MODELO` (lee apuntes y crea exámenes, por defecto `gemini-2.5-flash`) e `IA_MODELO_RAPIDO` (corrige y repasa, por defecto `gemini-2.5-flash-lite`). Cámbialos si Google publica otros.
+3. Modelos: `IA_MODELO` (lee apuntes y crea exámenes, por defecto `gemini-3.5-flash`) e `IA_MODELO_RAPIDO` (corrige y repasa, por defecto `gemini-3.5-flash-lite`). Cámbialos si Google retira alguno. `IA_RAZONAMIENTO` (por defecto `low`) equilibra calidad y rapidez.
 4. ⚠️ El plan **gratuito** tiene límites por minuto y por día, y según las [condiciones de Gemini API](https://ai.google.dev/gemini-api/terms) para ofrecer la app a usuarios de la UE hay que usar el plan de pago. Vale para probar; antes de abrir al público, activa la facturación en Google AI Studio (o cambia a Claude).
 
 **Claude:** pon `IA_PROVEEDOR=anthropic` y `ANTHROPIC_API_KEY` (de [console.anthropic.com](https://console.anthropic.com), con límite de gasto). Modelos por defecto: `claude-sonnet-5-5` y `claude-haiku-5-5` (cámbialos con `IA_MODELO` / `IA_MODELO_RAPIDO`).

@@ -10,7 +10,7 @@ export const LIMITES = {
 // IA que usa Entra: "gemini" (Google, tiene plan gratuito) o "anthropic" (Claude, de pago).
 // Si no se indica IA_PROVEEDOR, se usa Gemini cuando hay GEMINI_API_KEY.
 export const IA = process.env.IA_PROVEEDOR || (process.env.GEMINI_API_KEY ? "gemini" : "anthropic");
-const MODELOS = { gemini: ["gemini-2.5-flash", "gemini-2.5-flash-lite"], anthropic: ["claude-sonnet-5-5", "claude-haiku-5-5"] }[IA];
+const MODELOS = { gemini: ["gemini-3.5-flash", "gemini-3.5-flash-lite"], anthropic: ["claude-sonnet-5-5", "claude-haiku-5-5"] }[IA];
 export const MODELO = process.env.IA_MODELO || (IA === "anthropic" && process.env.ANTHROPIC_MODEL) || MODELOS[0];
 export const MODELO_RAPIDO = process.env.IA_MODELO_RAPIDO || (IA === "anthropic" && process.env.ANTHROPIC_MODEL_FAST) || MODELOS[1];
 
@@ -66,7 +66,9 @@ function pedirIA({ content, model, maxTokens }) {
     const parts = content.map((c) => c.type === "image"
       ? { type: "image_url", image_url: { url: `data:${c.source.media_type};base64,${c.source.data}` } }
       : { type: "text", text: c.text });
-    const extra = process.env.IA_RAZONAMIENTO ? { reasoning_effort: process.env.IA_RAZONAMIENTO } : {};
+    // Razonamiento "low": responde antes y sigue dando buen JSON ("none" lo estropea)
+    const razonamiento = process.env.IA_RAZONAMIENTO ?? "low";
+    const extra = razonamiento ? { reasoning_effort: razonamiento } : {};
     return fetch((process.env.GEMINI_API_URL || "https://generativelanguage.googleapis.com/v1beta/openai") + "/chat/completions", {
       method: "POST",
       headers: { authorization: `Bearer ${process.env.GEMINI_API_KEY}`, "content-type": "application/json" },
