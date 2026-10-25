@@ -1,0 +1,9 @@
+<!-- Plantilla de Supabase para "Magic Link" y "Confirm signup" (Authentication → Email Templates) -->
+<div style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#16213d">
+  <h1 style="font-size:24px;margin:0 0 8px">Entra <span style="color:#e5484d">✱</span></h1>
+  <p style="font-size:16px;margin:0 0 20px">Tu código para entrar es:</p>
+  <p style="font-size:36px;font-weight:bold;letter-spacing:8px;margin:0 0 20px;background:#f2f4fa;border-radius:12px;padding:16px;text-align:center">{{ .Token }}</p>
+  <p style="font-size:15px;margin:0 0 20px">Escríbelo en la web de Entra. O, si lo prefieres, pulsa este botón:</p>
+  <p style="margin:0 0 24px"><a href="{{ .ConfirmationURL }}" style="background:#2346c8;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:bold;display:inline-block">Entrar en Entra</a></p>
+  <p style="font-size:13px;color:#6b7590;margin:0">El código caduca en 1 hora. Si no has pedido entrar, ignora este email.</p>
+</div>

@@ -28,8 +28,8 @@ Compra el dominio (por ejemplo `entra.app`, `entraexamen.com` o `usaentra.com`).
    - Site URL: `https://tudominio.com`
    - Redirect URLs: `https://tudominio.com/app` y `https://*.netlify.app/app`
 5. **Authentication → Email**: el email por defecto de Supabase tiene un límite bajo de envíos. Antes de lanzar, configura **SMTP propio** (Resend, Brevo…) en *Authentication → SMTP Settings*, y traduce la plantilla del email a español en *Email Templates*.
-6. **Authentication → Sign In / Providers → "Allow anonymous sign-ins"**: actívalo. Es lo que permite hacer el primer simulacro sin email (plan "invitado", límites en `LIMITES.invitado`). Después la app le pide el email para guardar la cuenta sin perder nada. Para evitar abusos, Supabase limita los accesos anónimos por IP; si ves abuso, activa el CAPTCHA en *Authentication → Attack Protection*.
-7. (Opcional) Login con Google: *Authentication → Providers → Google*. Si no lo configuras, quita el botón "Continuar con Google" de `public/assets/app.js`.
+6. **Authentication → Emails → Templates**: en **Magic Link** y en **Confirm signup** pega el contenido de `supabase/templates/codigo.html` y pon de asunto "Tu código para entrar en Entra". Así el email lleva el **código de 6 cifras** que se escribe en la web (y también el botón para entrar).
+7. (Opcional) Login con Google: *Authentication → Providers → Google*. Cuando lo configures, pon `GOOGLE: true` en `public/assets/config.js` para que aparezca el botón.
 
 ## 3. API de Claude (la IA)
 1. Crea una cuenta en [console.anthropic.com](https://console.anthropic.com), añade saldo y crea una **API key**.

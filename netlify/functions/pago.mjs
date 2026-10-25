@@ -23,7 +23,7 @@ export default async (req) => {
   }
 
   if (perfil?.plan === "pro") return error("ya_pro", "Ya tienes Entra Pro.");
-  if (user.is_anonymous || !user.email) return error("necesita_email", "Guarda tu cuenta con tu email antes de pasarte a Pro.", 403);
+  if (!user.email) return error("necesita_email", "Tu cuenta no tiene email. Escríbenos.", 403);
 
   // El cliente de Stripe se crea con el email de la cuenta, así Checkout no lo vuelve a pedir
   let customer = perfil?.stripe_customer_id;

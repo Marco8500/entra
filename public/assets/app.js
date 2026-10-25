@@ -70,21 +70,18 @@ function drawAccount(){
   const box = $("#account"); const c = S.cuenta;
   if (!c || !S.session) { box.hidden = true; return }
   box.hidden = false;
-  box.innerHTML = `<span class="pill ${c.plan === "pro" ? "pro" : ""}">${{ pro: "Pro", invitado: "Prueba" }[c.plan] || "Gratis"}</span>
+  box.innerHTML = `<span class="pill ${c.plan === "pro" ? "pro" : ""}">${c.plan === "pro" ? "Pro" : "Gratis"}</span>
     <span>Simulacros <b>${c.uso.simulacros}/${c.limite.simulacros}</b></span>
     <span>Páginas <b>${c.uso.paginas}/${c.limite.paginas}</b></span>
     ${c.plan === "pro" ? `<button class="btn btn-ghost btn-sm" id="portal">Gestionar suscripción</button>`
-      : c.plan === "invitado" ? `<button class="btn btn-hl btn-sm" id="guardar">Guardar mi cuenta</button>`
       : `<button class="btn btn-hl btn-sm" id="goPro">Pasarme a Pro · ${esc(CFG.PRECIO_PRO || "")}</button>`}`;
   const gp = $("#goPro"); if (gp) gp.onclick = () => pagar("suscribir");
   const pt = $("#portal"); if (pt) pt.onclick = () => pagar("portal");
-  const gu = $("#guardar"); if (gu) gu.onclick = () => go("guardar");
 }
 async function pagar(accion){
-  if (accion === "suscribir" && S.cuenta?.plan === "invitado") return go("guardar");
   if (accion === "suscribir" && CFG.STRIPE_PUBLISHABLE_KEY) return go("pago");
   try { ctl = null; const { url } = await api("/api/pago", { accion }); location.href = url }
-  catch (e) { e.code === "necesita_email" ? go("guardar") : flash(e.message) }
+  catch (e) { flash(e.message) }
 }
 function flash(msg, kind = "error"){
   const box = $("#msg"); if (box) box.innerHTML = `<div class="${kind}">${esc(msg)}</div>`;
@@ -95,7 +92,7 @@ function flash(msg, kind = "error"){
 function go(v){ if (S.checkout && v !== "pago") { S.checkout.destroy(); S.checkout = null } S.view = v; render(); window.scrollTo({ top: 0, behavior: "instant" }) }
 function render(){
   document.querySelectorAll("#steps span").forEach(s => s.classList.toggle("on", s.dataset.s === (S.view === "review" ? "results" : S.view)));
-  const V = { login: vLogin, terms: vTerms, guardar: vGuardar, pago: vPago, home: vHome, topics: vTopics, format: vFormat, exam: vExam, results: vResults, review: vReview, busy: vBusy }[S.view];
+  const V = { login: vLogin, codigo: vCodigo, terms: vTerms, pago: vPago, home: vHome, topics: vTopics, format: vFormat, exam: vExam, results: vResults, review: vReview, busy: vBusy }[S.view];
   if (!V) return;
   $("#view").innerHTML = ""; $("#view").append(V());
 }
@@ -116,40 +113,81 @@ function fail(where, e){
   const isLimit = e?.status === 402;
   requestAnimationFrame(() => {
     flash(e?.message || "Algo ha fallado.");
-    if (e?.code === "limite_invitado") { const m = $("#msg") || $("#view"); m.append(h(`<button class="btn btn-hl" style="margin-top:10px" id="limG">Guardar mi cuenta con mi email</button>`)); $("#limG").onclick = () => go("guardar") }
-    else if (isLimit && S.cuenta?.plan !== "pro") { const m = $("#msg") || $("#view"); m.append(h(`<button class="btn btn-hl" style="margin-top:10px" id="limPro">Pasarme a Pro</button>`)); $("#limPro").onclick = () => pagar("suscribir") }
+    if (isLimit && S.cuenta?.plan !== "pro") { const m = $("#msg") || $("#view"); m.append(h(`<button class="btn btn-hl" style="margin-top:10px" id="limPro">Pasarme a Pro</button>`)); $("#limPro").onclick = () => pagar("suscribir") }
     refreshCuenta();
   });
 }
 
 /* ============ login y términos ============ */
+const msgAuth = (e) => /rate limit|seconds/i.test(e.message) ? "Has pedido varios códigos seguidos. Espera un minuto y vuelve a probar."
+  : /invalid|expired/i.test(e.message) ? "El código no es correcto o ha caducado. Revísalo o pide otro." : e.message;
+const PEND = "entra.login";
 function vLogin(){
   const el = h(`<section class="sheet">
-    <span class="eyebrow">Empieza</span>
-    <h2 style="font-size:28px">Haz tu primer simulacro</h2>
-    <p class="muted">Gratis y sin registrarte. Si te gusta, luego guardas tu cuenta con tu email.</p>
-    <button class="btn btn-hl" id="anon">Empezar sin registrarme</button>
-    <div class="sep">o entra con tu email</div>
-    <p class="muted">Te mandamos un enlace para entrar. Sin contraseñas.</p>
-    <form id="f" style="display:flex;flex-direction:column;gap:12px">
-      <label class="field" for="email">Email<input type="email" id="email" required autocomplete="email" placeholder="tu@email.com"></label>
-      <button class="btn btn-primary" type="submit">Enviarme el enlace</button>
+    <span class="eyebrow">Empieza gratis</span>
+    <h2 style="font-size:28px">Crea tu cuenta y haz tu primer simulacro</h2>
+    <p class="muted">Solo tu email. Te mandamos un código, lo escribes aquí y listo. Sin contraseñas.</p>
+    <form id="f" style="display:flex;flex-direction:column;gap:12px" novalidate>
+      <label class="field" for="email">Tu email<input type="email" id="email" required autocomplete="email" inputmode="email" placeholder="tu@email.com"></label>
+      <label class="check" for="acepto"><input type="checkbox" id="acepto"><span>Tengo <b>16 años o más</b> y acepto los <a href="/terminos" target="_blank">términos</a> y la <a href="/privacidad" target="_blank">privacidad</a>.</span></label>
+      <button class="btn btn-primary" type="submit" id="enviar">Enviarme el código</button>
     </form>
-    <div class="sep">o</div>
-    <button class="btn btn-ghost" id="google">Continuar con Google</button>
+    <p class="small muted">¿Ya tienes cuenta? Pon el mismo email y entrarás a la tuya.</p>
+    ${CFG.GOOGLE ? `<div class="sep">o</div><button class="btn btn-ghost" id="google">Continuar con Google</button>` : ""}
     <div id="msg"></div>
   </section>`);
   $("#f", el).onsubmit = async (e) => {
     e.preventDefault();
-    const email = $("#email", el).value.trim();
+    const email = $("#email", el).value.trim().toLowerCase();
+    const msg = (t) => $("#msg", el).innerHTML = `<div class="error">${esc(t)}</div>`;
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return msg("Escribe un email válido.");
+    if (!$("#acepto", el).checked) return msg("Marca la casilla para continuar.");
+    const b = $("#enviar", el); b.disabled = true; b.textContent = "Enviando…";
     const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + "/app" + location.search } });
-    $("#msg", el).innerHTML = error ? `<div class="error">${esc(error.message)}</div>` : `<div class="notice">Mira tu correo (${esc(email)}) y pulsa el enlace para entrar.</div>`;
+    b.disabled = false; b.textContent = "Enviarme el código";
+    if (error) return msg(msgAuth(error));
+    try { localStorage.setItem("entra.acepto", JSON.stringify({ email, at: new Date().toISOString() })); sessionStorage.setItem(PEND, JSON.stringify({ email, at: Date.now() })) } catch {}
+    S.loginEmail = email; S.reenvioAt = Date.now(); go("codigo");
   };
-  $("#anon", el).onclick = async () => {
-    const { error } = await sb.auth.signInAnonymously();
-    if (error) $("#msg", el).innerHTML = `<div class="error">No se ha podido empezar la prueba. Entra con tu email.</div>`;
+  const g = $("#google", el); if (g) g.onclick = () => sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: location.origin + "/app" + location.search } });
+  return el;
+}
+function vCodigo(){
+  const email = S.loginEmail;
+  const el = h(`<section class="sheet">
+    <span class="eyebrow">Revisa tu correo</span>
+    <h2 style="font-size:28px">Escribe el código</h2>
+    <p class="muted">Te lo hemos enviado a <b>${esc(email)}</b>. Si no lo ves, mira en <b>spam</b> o <b>promociones</b>.</p>
+    <form id="fc" style="display:flex;flex-direction:column;gap:12px">
+      <label class="field" for="codigo">Código<input id="codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="123456" style="font-size:28px;letter-spacing:.3em;text-align:center"></label>
+      <button class="btn btn-primary" type="submit" id="entrar">Entrar</button>
+    </form>
+    <p class="small muted">También puedes pulsar el botón del email.</p>
+    <div id="msg"></div>
+    <div class="row"><button class="btn btn-ghost" id="reenviar"></button><button class="btn btn-ghost" id="cambiar">Cambiar email</button></div>
+  </section>`);
+  const inp = $("#codigo", el), msg = (t, k = "error") => $("#msg", el).innerHTML = `<div class="${k}">${esc(t)}</div>`;
+  const verificar = async () => {
+    const token = inp.value.replace(/\D/g, "");
+    if (token.length < 6) return msg("El código tiene 6 cifras.");
+    $("#entrar", el).disabled = true;
+    const { error } = await sb.auth.verifyOtp({ email, token, type: "email" });
+    $("#entrar", el).disabled = false;
+    if (error) { inp.select(); return msg(msgAuth(error)) }
+    try { sessionStorage.removeItem(PEND) } catch {}
   };
-  $("#google", el).onclick = () => sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: location.origin + "/app" + location.search } });
+  inp.oninput = () => { inp.value = inp.value.replace(/\D/g, ""); if (inp.value.length === (CFG.OTP_LENGTH || 6)) verificar() };
+  $("#fc", el).onsubmit = (e) => { e.preventDefault(); verificar() };
+  const rb = $("#reenviar", el);
+  const tick = () => { const s = Math.ceil((S.reenvioAt + 60000 - Date.now()) / 1000); rb.disabled = s > 0; rb.textContent = s > 0 ? `Reenviar en ${s} s` : "Reenviar código"; if (s > 0 && S.view === "codigo") setTimeout(tick, 1000) };
+  tick();
+  rb.onclick = async () => {
+    const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + "/app" + location.search } });
+    if (error) return msg(msgAuth(error));
+    S.reenvioAt = Date.now(); tick(); msg("Te hemos mandado un código nuevo.", "notice");
+  };
+  $("#cambiar", el).onclick = () => { try { sessionStorage.removeItem(PEND) } catch {} go("login") };
+  requestAnimationFrame(() => inp.focus());
   return el;
 }
 function vTerms(){
@@ -169,31 +207,6 @@ function vTerms(){
     if (error) return $("#msg", el).innerHTML = `<div class="error">No se ha podido guardar. Vuelve a intentarlo.</div>`;
     await refreshCuenta(); afterLogin();
   };
-  return el;
-}
-
-/* ============ guardar cuenta de prueba (anónima → email) ============ */
-function vGuardar(){
-  const el = h(`<section class="sheet">
-    <span class="eyebrow">Guarda tu cuenta</span>
-    <h2 style="font-size:26px">Sigue gratis con tu email</h2>
-    <p class="muted">Tus apuntes y tus resultados se quedan. Con la cuenta gratis tienes 3 simulacros al mes y puedes pasarte a Pro cuando quieras.</p>
-    <form id="f" style="display:flex;flex-direction:column;gap:12px">
-      <label class="field" for="email">Email<input type="email" id="email" required autocomplete="email" placeholder="tu@email.com"></label>
-      <button class="btn btn-primary" type="submit">Guardar mi cuenta</button>
-    </form>
-    <div id="msg"></div>
-    <button class="btn btn-ghost" id="back">Ahora no</button>
-  </section>`);
-  $("#f", el).onsubmit = async (e) => {
-    e.preventDefault();
-    const email = $("#email", el).value.trim();
-    const { data, error } = await sb.auth.updateUser({ email }, { emailRedirectTo: location.origin + "/app" });
-    if (error) return $("#msg", el).innerHTML = `<div class="error">${esc(/registered|exists/i.test(error.message) ? "Ese email ya tiene cuenta. Cierra sesión y entra con él." : error.message)}</div>`;
-    if (data.user?.email === email) { await refreshCuenta(); await loadHistorial(); go("home"); return flash("¡Cuenta guardada! Ya puedes seguir.", "notice") } // sin confirmación por email
-    $("#msg", el).innerHTML = `<div class="notice">Te hemos enviado un enlace a ${esc(email)}. Ábrelo para confirmar y tu cuenta quedará guardada.</div>`;
-  };
-  $("#back", el).onclick = () => go("home");
   return el;
 }
 
@@ -222,7 +235,6 @@ function vPago(){
       S.checkout = await stripe.initEmbeddedCheckout({ fetchClientSecret: async () => clientSecret });
       $("#checkout", el).innerHTML = ""; S.checkout.mount($("#checkout", el));
     } catch (e) {
-      if (e.code === "necesita_email") return go("guardar");
       $("#checkout", el).innerHTML = ""; $("#msg", el).innerHTML = `<div class="error">${esc(e.message)}</div>`;
     }
   })();
@@ -639,7 +651,15 @@ function makePdf(){
 async function afterLogin(){
   $("#logout").hidden = false; $("#delAcc").hidden = false;
   if (!S.cuenta) await refreshCuenta();
-  if (S.cuenta && !S.cuenta.terminos) return go("terms");
+  if (S.cuenta && !S.cuenta.terminos) {
+    // Si marcó la casilla al pedir el código con este mismo email, no volvemos a preguntar
+    let ac = null; try { ac = JSON.parse(localStorage.getItem("entra.acepto")) } catch {}
+    if (ac?.email && ac.email === S.session.user.email?.toLowerCase()) {
+      const { error } = await sb.from("perfiles").update({ acepto_terminos_at: ac.at }).eq("id", S.session.user.id);
+      if (!error) await refreshCuenta();
+    }
+    if (!S.cuenta?.terminos) return go("terms");
+  }
   const q = new URLSearchParams(location.search);
   await loadHistorial();
   go("home");
@@ -651,10 +671,7 @@ async function afterLogin(){
 async function esperarPro(){
   for (let i = 0; i < 10 && S.cuenta?.plan !== "pro"; i++) { await new Promise(r => setTimeout(r, 2000)); await refreshCuenta() }
 }
-$("#logout").onclick = () => {
-  if (S.cuenta?.plan === "invitado" && !confirm("No has guardado tu cuenta con un email: si cierras sesión perderás tus apuntes y resultados. ¿Cerrar igualmente?")) return;
-  sb.auth.signOut();
-};
+$("#logout").onclick = () => sb.auth.signOut();
 $("#delAcc").onclick = () => {
   const box = $("#delBox");
   box.innerHTML = `<div class="error" style="display:flex;flex-direction:column;gap:10px">Se borrarán tu cuenta, tus apuntes y tus resultados, y se cancelará Pro si lo tienes. No se puede deshacer.<div class="row"><button class="btn btn-ghost" id="dNo">Cancelar</button><button class="btn btn-primary" id="dYes">Borrar todo</button></div></div>`;
@@ -667,7 +684,11 @@ $("#delAcc").onclick = () => {
 sb.auth.onAuthStateChange((evt, session) => {
   const was = !!S.session; S.session = session;
   if (session && !was) { refreshCuenta().then(afterLogin) }
-  if (!session) { S.cuenta = null; drawAccount(); $("#logout").hidden = true; $("#delAcc").hidden = true; go("login") }
+  if (!session) { S.cuenta = null; drawAccount(); $("#logout").hidden = true; $("#delAcc").hidden = true; if (S.view !== "codigo") go("login") }
 });
-sb.auth.getSession().then(({ data }) => { if (!data.session) go("login") });
+sb.auth.getSession().then(({ data }) => {
+  if (data.session) return;
+  let p = null; try { p = JSON.parse(sessionStorage.getItem(PEND)) } catch {}
+  if (p?.email && Date.now() - p.at < 3600000) { S.loginEmail = p.email; S.reenvioAt = p.at; go("codigo") } else go("login");
+});
 })();

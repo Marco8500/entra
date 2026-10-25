@@ -24,7 +24,7 @@ export default async (req) => {
     return errorLimite(a.plan, "simulacros", a.limite.simulacros);
 
   if (a.uso.bloques >= a.limite.bloques)
-    return a.plan === "invitado" ? errorLimite(a.plan) : error("limite_simulacros", "Has llegado al máximo de preguntas de este mes.", 402);
+    return error("limite_simulacros", "Has llegado al máximo de preguntas de este mes.", 402);
 
   const evitar = (Array.isArray(b.evitar) ? b.evitar : []).slice(0, 60).map((x) => "- " + texto(x, 200)).join("\n");
   const lista = temas.map((t, i) => `TEMA ${i + 1}: ${t.titulo}${t.notas ? ` [anotación del alumno: ${t.notas}]` : ""}\n${t.contenido}`).join("\n\n");

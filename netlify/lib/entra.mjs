@@ -3,7 +3,6 @@ import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 
 export const LIMITES = {
-  invitado: { simulacros: 1, paginas: 5, bloques: 6 }, // prueba sin email (usuario anónimo de Supabase)
   free: { simulacros: 3, paginas: 15, bloques: 20 },
   pro: { simulacros: 60, paginas: 300, bloques: 400 },
 };
@@ -29,12 +28,10 @@ export const error = (code, mensaje, status = 400) => json({ error: code, mensaj
 
 export const mesActual = () => new Date().toISOString().slice(0, 7);
 
-export const planDe = (user, perfil) => (user.is_anonymous ? "invitado" : perfil?.plan === "pro" ? "pro" : "free");
+export const planDe = (user, perfil) => (perfil?.plan === "pro" ? "pro" : "free");
 
 /** Mensaje y código de error cuando se acaba el cupo del mes */
 export function errorLimite(plan, que, n, nombre = que) {
-  if (plan === "invitado")
-    return error("limite_invitado", "Ya has hecho tu simulacro de prueba. Guarda tu cuenta con tu email para seguir gratis: no pierdes nada de lo que has hecho.", 402);
   if (plan === "pro") return error(`limite_${que}`, `Has llegado al máximo de ${nombre} de este mes.`, 402);
   return error(`limite_${que}`, `El plan gratis incluye ${n} ${nombre} al mes. Pásate a Pro para seguir.`, 402);
 }
