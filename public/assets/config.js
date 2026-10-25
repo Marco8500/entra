@@ -11,8 +11,8 @@ window.ENTRA_CONFIG = ENTRA_LOCAL
       CONTACTO: "hola@tudominio.com",
     }
   : {
-      SUPABASE_URL: "https://TU-PROYECTO.supabase.co",
-      SUPABASE_ANON_KEY: "TU_ANON_KEY",
+      SUPABASE_URL: "https://pabuoxrtijtldxzmyeqn.supabase.co",
+      SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhYnVveHJ0aWp0bGR4em15ZXFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI5NTI2NTcsImV4cCI6MjEwODUyODY1N30.UnKRD0tSAlfTcpHd8S0GO4Mw9s9310OnIsXxxa2FLZU",
       PRECIO_PRO: "3,99 €/mes",
       CONTACTO: "hola@tudominio.com",
     };
