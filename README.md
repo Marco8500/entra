@@ -51,7 +51,7 @@ Compra el dominio (por ejemplo `entra.app`, `entraexamen.com` o `usaentra.com`).
 
 ## 5. Netlify (la web)
 1. Edita `public/assets/config.js` con tu `SUPABASE_URL`, `SUPABASE_ANON_KEY`, precio y email de contacto.
-2. Sube la carpeta a un repositorio de GitHub y en Netlify: **Add new site → Import from Git** (recomendado, para que instale las dependencias). **Base directory: `entra-web`** (la web está en esa carpeta del repositorio). Build command: vacío. Publish directory: `public` (ya viene en `netlify.toml`).
+2. Sube la carpeta a un repositorio de GitHub y en Netlify: **Add new site → Import from Git** (recomendado, para que instale las dependencias). Build command: vacío. Publish directory: `public` (ya viene en `netlify.toml`).
 3. **Site configuration → Environment variables**:
 
 | Variable | Valor |
