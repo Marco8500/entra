@@ -1,0 +1,51 @@
+// POST /api/leer · lee fotos y/o texto de apuntes y devuelve los temas (JSON en streaming)
+import { autenticar, error, streamClaude, sumarUso, texto } from "../lib/entra.mjs";
+
+const MAX_FOTOS = 4;
+const TIPOS = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
+const PROMPT = (pegado) => `Eres el lector de apuntes de Entra, una web de simulacros para estudiantes españoles (FP, bachillerato, universidad, oposiciones).
+Te paso fotos de apuntes${pegado ? " y/o texto pegado" : ""}. Extrae cada apartado o tema con contenido estudiable.
+Reglas:
+- Ignora portadas e índices, pero úsalos para saber la unidad.
+- "entra": true si el alumno anotó que entra (p. ej. "✱ Entra", "Entra (test)"), false si anotó "No entra", null si no hay anotación.
+- Si un apartado ocupa varias páginas con la misma anotación, júntalo en un solo tema.
+- "contenido": resumen fiel y completo de 60-220 palabras con TODOS los datos examinables: definiciones, cifras, listas, clasificaciones, ejemplos y las anotaciones a mano. No inventes nada.
+- "notas": anotaciones sobre el examen ("pregunta corta", "test", "importante", "no lo ha preguntado") o "".
+- Si las imágenes no son apuntes, devuelve "temas": [].
+Responde SOLO con JSON:
+{"asignatura":"...","temas":[{"titulo":"...","unidad":"...","entra":true,"contenido":"...","notas":"..."}]}
+${pegado ? "\nTexto pegado por el alumno:\n" + pegado : ""}`;
+
+export default async (req) => {
+  if (req.method !== "POST") return error("metodo", "Usa POST.", 405);
+  const a = await autenticar(req);
+  if (a.fallo) return a.fallo;
+  let body;
+  try { body = await req.json(); } catch { return error("json", "Petición mal formada."); }
+
+  const fotos = Array.isArray(body.fotos) ? body.fotos.slice(0, MAX_FOTOS) : [];
+  const pegado = texto(body.texto, 60000).trim();
+  if (!fotos.length && !pegado) return error("vacio", "Sube una foto o pega texto.");
+  for (const f of fotos) {
+    if (!TIPOS.includes(f?.tipo) || typeof f?.base64 !== "string" || f.base64.length > 2_500_000)
+      return error("foto", "Alguna foto no es válida o es demasiado grande.");
+  }
+  const paginas = Math.max(1, fotos.length);
+  if (a.uso.paginas + paginas > a.limite.paginas)
+    return error("limite_paginas", a.plan === "pro"
+      ? "Has llegado al máximo de páginas de este mes."
+      : `El plan gratis incluye ${a.limite.paginas} páginas al mes. Pásate a Pro para seguir.`, 402);
+
+  const content = [
+    ...fotos.map((f) => ({ type: "image", source: { type: "base64", media_type: f.tipo, data: f.base64 } })),
+    { type: "text", text: PROMPT(pegado) },
+  ];
+  return streamClaude({
+    content,
+    maxTokens: 6000,
+    onDone: () => sumarUso(a.db, a.user.id, { paginas }),
+  });
+};
+
+export const config = { path: "/api/leer" };

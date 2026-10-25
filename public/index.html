@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Entra · Simulacros de examen con tus apuntes</title>
+<meta name="description" content="Sube fotos de tus apuntes y Entra te hace un simulacro solo con lo que entra, con el formato de tu profe. Te corrige, te pone nota y te prepara un repaso de lo que fallas.">
+<meta property="og:title" content="Entra · Te preguntamos solo lo que entra">
+<meta property="og:description" content="Simulacros de examen con tus propios apuntes. Corrección con nota y repaso de tus fallos.">
+<meta name="theme-color" content="#2346c8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Caveat:wght@600;700&display=swap">
+<link rel="stylesheet" href="/assets/style.css">
+<style>
+.hero{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:32px;align-items:center;padding-block:28px 8px}
+@media (max-width:820px){.hero{grid-template-columns:1fr}}
+.hero h1{font-size:clamp(38px,7vw,64px);font-weight:800;letter-spacing:-.03em}
+.hero .lead{font-size:19px;color:var(--ink-2);max-width:48ch;margin-top:16px}
+.hero .cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
+.hero .cta .btn{flex:0 1 auto}
+.kicker{font-family:var(--f-hand);font-weight:700;color:var(--margin);font-size:26px;transform:rotate(-3deg);display:inline-block;margin-bottom:6px}
+/* mini hoja de ejemplo */
+.demo{transform:rotate(1.5deg)}
+.demo .qt{font-size:16px}
+.demo .stamp-a{position:absolute;top:-14px;right:14px;font-family:var(--f-hand);font-size:28px;font-weight:700;color:var(--margin);transform:rotate(8deg);background:var(--sheet);padding:0 8px;border:2.5px solid var(--margin);border-radius:8px}
+.demo .score-mini{display:flex;align-items:baseline;gap:8px;font-family:var(--f-display);font-weight:800;font-size:34px}
+.demo .score-mini small{font-size:16px;color:var(--ink-2)}
+section.block{padding-block:40px 0;display:flex;flex-direction:column;gap:18px}
+section.block > h2{font-size:clamp(28px,4.5vw,40px);letter-spacing:-.02em}
+.steps4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;counter-reset:s}
+@media (max-width:860px){.steps4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:480px){.steps4{grid-template-columns:1fr}}
+.step{counter-increment:s}
+.step::after{content:counter(s);position:absolute;top:14px;right:16px;font-family:var(--f-hand);font-size:34px;color:var(--blue);font-weight:700;line-height:1}
+.step h3{font-size:19px;padding-right:28px}
+.diff{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width:640px){.diff{grid-template-columns:1fr}}
+.diff h3{font-size:18px}
+.price{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;max-width:760px}
+@media (max-width:600px){.price{grid-template-columns:1fr}}
+.price .amount{font-family:var(--f-display);font-weight:800;font-size:40px;line-height:1}
+.price ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.price .best{outline:3px solid var(--hl);outline-offset:-1px}
+.faq details{border-bottom:1px dashed var(--rule);padding-block:12px}
+.faq summary{cursor:pointer;font-weight:700;font-size:17px}
+.faq details p{color:var(--ink-2);margin-top:8px;max-width:68ch}
+</style>
+</head>
+<body>
+<div class="wrap wide">
+  <header class="top">
+    <a class="logo" href="/">Entra <span class="star">✱</span></a>
+    <nav class="nav"><a class="btn btn-ghost btn-sm" href="#precios">Precios</a><a class="btn btn-primary btn-sm" href="/app">Empezar gratis</a></nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <span class="kicker">✱ Entra en el examen</span>
+        <h1>Sube tus apuntes. Te preguntamos <span class="hl">solo lo que entra</span>.</h1>
+        <p class="lead">Haz fotos a tus apuntes, marca lo que entra y Entra te hace un simulacro con el formato de tu profe. Te corrige, te pone nota y te prepara un repaso de lo que fallas.</p>
+        <div class="cta"><a class="btn btn-primary" href="/app">Hacer mi primer simulacro</a><a class="btn btn-ghost" href="#como">Cómo funciona</a></div>
+        <p class="small muted" style="margin-top:12px">3 simulacros gratis al mes. Sin tarjeta.</p>
+      </div>
+      <div class="sheet demo" aria-label="Ejemplo de simulacro">
+        <span class="stamp-a">✱ Entra (test)</span>
+        <span class="eyebrow">PRL · Unidad 2 · Pregunta 7 de 44</span>
+        <p class="qt">¿Qué instrumento se usa para medir el ruido discontinuo?</p>
+        <div class="opts">
+          <div class="opt"><span class="letter">a)</span><span>Sonómetro</span></div>
+          <div class="opt right"><span class="letter">b)</span><span>Dosímetro</span></div>
+          <div class="opt"><span class="letter">c)</span><span>Analizador de impacto</span></div>
+        </div>
+        <p class="fb">Truco: <b>D</b>iscontinuo → <b>D</b>osímetro.</p>
+        <div class="score-mini">7,8 <small>/10 · Notable</small></div>
+      </div>
+    </section>
+
+    <section class="block" id="como">
+      <h2>De tus apuntes a tu nota en cuatro pasos</h2>
+      <div class="steps4">
+        <article class="sheet step"><h3>Sube tus apuntes</h3><p class="muted">Fotos del cuaderno, del libro o capturas. Lee también lo que escribes a mano.</p></article>
+        <article class="sheet step"><h3>Marca lo que entra</h3><p class="muted">Detecta tus anotaciones de <span class="stampmini">entra</span> y <span class="stampmini">no entra</span>. Tú confirmas.</p></article>
+        <article class="sheet step"><h3>Haz el simulacro</h3><p class="muted">Con el formato real: por ejemplo 39 test y 5 cortas en 60 minutos.</p></article>
+        <article class="sheet step"><h3>Nota y repaso</h3><p class="muted">Corrección con nota sobre 10, repaso de tus fallos con vídeos, y otro simulacro solo de eso.</p></article>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2>Lo que no te da un test cualquiera</h2>
+      <div class="diff">
+        <article class="sheet"><h3>Solo lo que entra</h3><p class="muted">No pierdes tiempo con temas que tu profe ha quitado. Lee tus anotaciones a mano.</p></article>
+        <article class="sheet"><h3>Tu examen, clavado</h3><p class="muted">Eliges número de test, cortas, opciones y tiempo. Igual que el día del examen.</p></article>
+        <article class="sheet"><h3>Corrige las cortas como un profe</h3><p class="muted">Nota de 0 a 10 en cada respuesta y qué te faltó decir.</p></article>
+        <article class="sheet"><h3>Repasa hasta dominarlo</h3><p class="muted">Hoja de repaso en PDF, vídeos de YouTube de cada tema y nuevo simulacro solo de tus fallos.</p></article>
+      </div>
+    </section>
+
+    <section class="block" id="precios">
+      <h2>Precios</h2>
+      <div class="price">
+        <article class="sheet">
+          <span class="eyebrow">Gratis</span>
+          <div class="amount">0 €</div>
+          <ul><li>3 simulacros al mes</li><li>15 páginas de apuntes al mes</li><li>Corrección y repaso incluidos</li></ul>
+          <a class="btn btn-ghost" href="/app">Empezar gratis</a>
+        </article>
+        <article class="sheet best">
+          <span class="eyebrow">Pro</span>
+          <div class="amount" id="precio">3,99 €<span class="small muted" style="font-family:var(--f-body);font-weight:400"> /mes</span></div>
+          <ul><li>60 simulacros al mes</li><li>300 páginas de apuntes al mes</li><li>Exámenes largos (39+5 y más)</li><li>Cancela cuando quieras</li></ul>
+          <a class="btn btn-hl" href="/app?pro=1">Pasarme a Pro</a>
+        </article>
+      </div>
+    </section>
+
+    <section class="block faq">
+      <h2>Preguntas frecuentes</h2>
+      <details><summary>¿Qué pasa con las fotos de mis apuntes?</summary><p>Se usan solo para leer el contenido y no se guardan. Guardamos el texto de los temas para que puedas repetir simulacros. Puedes borrarlo cuando quieras.</p></details>
+      <details><summary>¿Sirve para cualquier asignatura?</summary><p>Funciona mejor con asignaturas de teoría: FP, bachillerato, universidad y oposiciones. Para problemas de matemáticas o física todavía no es lo ideal.</p></details>
+      <details><summary>¿Las preguntas pueden tener errores?</summary><p>Se crean solo con tus apuntes, pero la IA puede equivocarse. Cada respuesta trae su explicación para que lo compruebes con tus apuntes.</p></details>
+      <details><summary>¿Hay edad mínima?</summary><p>Sí, 16 años. Entra está pensado para FP, bachillerato, universidad y oposiciones.</p></details>
+      <details><summary>¿Cómo cancelo Pro?</summary><p>Desde tu cuenta, en "Gestionar suscripción". Sigues con Pro hasta el final del periodo pagado.</p></details>
+    </section>
+  </main>
+
+  <footer class="foot"><span>© Entra</span><a href="/privacidad">Privacidad</a><a href="/terminos">Términos</a><a href="/app">Entrar</a></footer>
+</div>
+<script src="/assets/config.js"></script>
+<script>try{ const p = window.ENTRA_CONFIG?.PRECIO_PRO; if (p) document.getElementById("precio").firstChild.textContent = p.replace(/\s*\/\s*mes/i, "") + " " }catch(e){}</script>
+</body>
+</html>

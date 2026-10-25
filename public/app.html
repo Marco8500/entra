@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Entra · App</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#2346c8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Caveat:wght@600;700&display=swap">
+<link rel="stylesheet" href="/assets/style.css">
+<style>body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top, 0px);z-index:10;background:var(--paper)}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="logo" href="/">Entra <span class="star">✱</span></a>
+    <nav class="steps" id="steps" aria-label="Pasos">
+      <span data-s="home">Apuntes</span><span data-s="topics">Qué entra</span><span data-s="format">Formato</span><span data-s="exam">Examen</span><span data-s="results">Nota</span>
+    </nav>
+  </header>
+  <div id="account" class="meter" hidden></div>
+  <main id="view"><section class="sheet"><div class="loading"><div class="pen" aria-hidden="true"></div><p class="muted">Cargando…</p></div></section></main>
+  <footer class="foot"><a href="/privacidad">Privacidad</a><a href="/terminos">Términos</a><button class="btn btn-ghost btn-sm" id="logout" hidden>Cerrar sesión</button><button class="btn btn-ghost btn-sm" id="delAcc" hidden>Borrar mi cuenta</button></footer>
+  <div id="delBox" class="wrap" style="margin-top:10px"></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="/assets/config.js"></script>
+<script src="/assets/app.js"></script>
+</body>
+</html>
