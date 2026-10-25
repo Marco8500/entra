@@ -28,7 +28,7 @@ Compra el dominio (por ejemplo `entra.app`, `entraexamen.com` o `usaentra.com`).
    - Site URL: `https://tudominio.com`
    - Redirect URLs: `https://tudominio.com/app` y `https://*.netlify.app/app`
 5. **Authentication → Email**: el email por defecto de Supabase tiene un límite bajo de envíos. Antes de lanzar, configura **SMTP propio** (Resend, Brevo…) en *Authentication → SMTP Settings*, y traduce la plantilla del email a español en *Email Templates*.
-6. **Authentication → Emails → Templates**: en **Magic Link** y en **Confirm signup** pega el contenido de `supabase/templates/codigo.html` y pon de asunto "Tu código para entrar en Entra". Así el email lleva el **código de 6 cifras** que se escribe en la web (y también el botón para entrar).
+6. **Emails (obligatorio antes de abrir al público):** el correo por defecto de Supabase **solo envía a los miembros de tu equipo** y muy pocos por hora: vale para probar tú, no para usuarios reales. Configura SMTP propio en *Authentication → Emails → SMTP Settings* (gratis sin dominio: Brevo con tu email verificado; con dominio: Resend). Después, en *Templates*, pega `supabase/templates/codigo.html` en **Magic link or OTP** y en **Confirm sign up** (asunto: "Tu código para entrar en Entra") y pon `CODIGO_EN_EMAIL: true` en `public/assets/config.js`: el email llevará un código de 6 cifras para escribir en la web. Mientras tanto se entra con el botón del email.
 7. (Opcional) Login con Google: *Authentication → Providers → Google*. Cuando lo configures, pon `GOOGLE: true` en `public/assets/config.js` para que aparezca el botón.
 
 ## 3. API de Claude (la IA)
