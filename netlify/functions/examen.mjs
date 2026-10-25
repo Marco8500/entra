@@ -1,6 +1,6 @@
 // POST /api/examen · genera un bloque de preguntas (el navegador pide varios bloques en paralelo)
 // body: { temas:[{titulo,contenido,notas}], test:n, cortas:n, opciones:n, bloque:i, nuevo:bool, evitar:[preguntas] }
-import { autenticar, error, errorLimite, streamClaude, sumarUso, texto } from "../lib/entra.mjs";
+import { autenticar, error, errorLimite, streamIA, sumarUso, texto } from "../lib/entra.mjs";
 
 export default async (req) => {
   if (req.method !== "POST") return error("metodo", "Usa POST.", 405);
@@ -42,7 +42,7 @@ Responde SOLO con JSON:
 {"test":[{"pregunta":"...","opciones":["..."],"correcta":0,"tema":"título exacto del tema","explicacion":"una frase"}],
  "cortas":[{"pregunta":"...","tema":"título exacto del tema","respuestaModelo":"...","puntosClave":["..."]}]}`;
 
-  return streamClaude({
+  return streamIA({
     content: [{ type: "text", text: prompt }],
     maxTokens: 7000,
     onDone: () => sumarUso(a.db, a.user.id, { simulacros: cuenta ? 1 : 0, bloques: 1 }),

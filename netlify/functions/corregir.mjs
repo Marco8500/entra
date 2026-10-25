@@ -1,6 +1,6 @@
 // POST /api/corregir · corrige respuestas cortas como un profesor
 // body: { preguntas:[{pregunta, respuestaModelo, puntosClave, respuesta}] }
-import { autenticar, error, streamClaude, texto, MODELO_RAPIDO } from "../lib/entra.mjs";
+import { autenticar, error, streamIA, texto, MODELO_RAPIDO } from "../lib/entra.mjs";
 
 export default async (req) => {
   if (req.method !== "POST") return error("metodo", "Usa POST.", 405);
@@ -21,7 +21,7 @@ Respuesta del alumno: <<<${texto(p.respuesta, 2000) || "(vacía)"}>>>`).join("\n
 
 Responde SOLO con JSON: [{"i":0,"nota":7,"comentario":"..."}]`;
 
-  return streamClaude({ content: [{ type: "text", text: prompt }], maxTokens: 2500, model: MODELO_RAPIDO });
+  return streamIA({ content: [{ type: "text", text: prompt }], maxTokens: 2500, model: MODELO_RAPIDO });
 };
 
 export const config = { path: "/api/corregir" };

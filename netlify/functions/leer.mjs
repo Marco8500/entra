@@ -1,5 +1,5 @@
 // POST /api/leer · lee fotos y/o texto de apuntes y devuelve los temas (JSON en streaming)
-import { autenticar, error, errorLimite, streamClaude, sumarUso, texto } from "../lib/entra.mjs";
+import { autenticar, error, errorLimite, streamIA, sumarUso, texto } from "../lib/entra.mjs";
 
 const MAX_FOTOS = 4;
 const TIPOS = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -39,7 +39,7 @@ export default async (req) => {
     ...fotos.map((f) => ({ type: "image", source: { type: "base64", media_type: f.tipo, data: f.base64 } })),
     { type: "text", text: PROMPT(pegado) },
   ];
-  return streamClaude({
+  return streamIA({
     content,
     maxTokens: 6000,
     onDone: () => sumarUso(a.db, a.user.id, { paginas }),

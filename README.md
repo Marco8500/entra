@@ -31,13 +31,16 @@ Compra el dominio (por ejemplo `entra.app`, `entraexamen.com` o `usaentra.com`).
 6. **Emails (obligatorio antes de abrir al público):** el correo por defecto de Supabase **solo envía a los miembros de tu equipo** y muy pocos por hora: vale para probar tú, no para usuarios reales. Configura SMTP propio en *Authentication → Emails → SMTP Settings* (gratis sin dominio: Brevo con tu email verificado; con dominio: Resend). Después, en *Templates*, pega `supabase/templates/codigo.html` en **Magic link or OTP** y en **Confirm sign up** (asunto: "Tu código para entrar en Entra") y pon `CODIGO_EN_EMAIL: true` en `public/assets/config.js`: el email llevará un código de 6 cifras para escribir en la web. Mientras tanto se entra con el botón del email.
 7. (Opcional) Login con Google: *Authentication → Providers → Google*. Cuando lo configures, pon `GOOGLE: true` en `public/assets/config.js` para que aparezca el botón.
 
-## 3. API de Claude (la IA)
-1. Crea una cuenta en [console.anthropic.com](https://console.anthropic.com), añade saldo y crea una **API key**.
-2. Pon un **límite de gasto mensual** en la consola (Settings → Limits) para no llevarte sustos.
-3. Modelos que usa (cámbialos con variables de entorno si quieres):
-   - `ANTHROPIC_MODEL` (lee apuntes y crea exámenes) → por defecto `claude-sonnet-5-5`
-   - `ANTHROPIC_MODEL_FAST` (corrige y hace repasos) → por defecto `claude-haiku-5-5`
-   Mira precios actualizados en la web de Anthropic y calcula: un examen 39+5 son 4 llamadas de generación + 1 de corrección.
+## 3. La IA (Gemini gratis, o Claude)
+Entra funciona con **Google Gemini** (tiene plan gratuito) o con **Claude** (de pago). Se elige con variables de entorno, sin tocar código.
+
+**Gemini (por defecto):**
+1. Entra en [aistudio.google.com/apikey](https://aistudio.google.com/apikey) con tu cuenta de Google → **Create API key**. No pide tarjeta.
+2. En Netlify pon `GEMINI_API_KEY` con esa clave.
+3. Modelos: `IA_MODELO` (lee apuntes y crea exámenes, por defecto `gemini-2.5-flash`) e `IA_MODELO_RAPIDO` (corrige y repasa, por defecto `gemini-2.5-flash-lite`). Cámbialos si Google publica otros.
+4. ⚠️ El plan **gratuito** tiene límites por minuto y por día, y según las [condiciones de Gemini API](https://ai.google.dev/gemini-api/terms) para ofrecer la app a usuarios de la UE hay que usar el plan de pago. Vale para probar; antes de abrir al público, activa la facturación en Google AI Studio (o cambia a Claude).
+
+**Claude:** pon `IA_PROVEEDOR=anthropic` y `ANTHROPIC_API_KEY` (de [console.anthropic.com](https://console.anthropic.com), con límite de gasto). Modelos por defecto: `claude-sonnet-5-5` y `claude-haiku-5-5` (cámbialos con `IA_MODELO` / `IA_MODELO_RAPIDO`).
 
 ## 4. Stripe (pagos)
 1. Crea cuenta en [stripe.com](https://stripe.com) y empieza en **modo prueba**.
@@ -59,7 +62,7 @@ Compra el dominio (por ejemplo `entra.app`, `entraexamen.com` o `usaentra.com`).
 |---|---|
 | `SUPABASE_URL` | URL del proyecto |
 | `SUPABASE_SERVICE_ROLE_KEY` | clave service_role |
-| `ANTHROPIC_API_KEY` | API key de Claude |
+| `GEMINI_API_KEY` | API key de Gemini (o `ANTHROPIC_API_KEY` + `IA_PROVEEDOR=anthropic`) |
 | `STRIPE_SECRET_KEY` | `sk_...` |
 | `STRIPE_PRICE_ID` | `price_...` |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_...` |
@@ -71,7 +74,7 @@ Compra el dominio (por ejemplo `entra.app`, `entraexamen.com` o `usaentra.com`).
 - [ ] Rellena los `[corchetes]` de `privacidad.html` y `terminos.html` y **revísalos con un profesional** (son una plantilla).
 - [ ] Si cobras, date de alta como autónomo o usa tu sociedad, y activa la facturación con IVA en Stripe (Stripe Tax o facturas automáticas).
 - [ ] Haz un recorrido completo en modo prueba: registro → leer fotos → examen 39+5 → corrección → repaso → PDF → pagar → cancelar → borrar cuenta.
-- [ ] Pon el límite de gasto en Anthropic.
+- [ ] IA: plan de pago de Gemini (obligatorio para usuarios de la UE) o Claude con límite de gasto.
 
 ---
 

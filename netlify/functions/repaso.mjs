@@ -1,6 +1,6 @@
 // POST /api/repaso · hoja de repaso de los temas flojos con trucos y búsquedas de YouTube
 // body: { asignatura, temas:[{titulo, contenido}], fallos:[texto] }
-import { autenticar, error, streamClaude, texto, MODELO_RAPIDO } from "../lib/entra.mjs";
+import { autenticar, error, streamIA, texto, MODELO_RAPIDO } from "../lib/entra.mjs";
 
 export default async (req) => {
   if (req.method !== "POST") return error("metodo", "Usa POST.", 405);
@@ -22,7 +22,7 @@ ${fallos || "(solo respuestas cortas flojas)"}
 Para cada tema: "resumen" de 60-110 palabras centrado en lo que falló; "claves": 3 trucos o reglas para memorizar (cortos, tipo "Discontinuo → Dosímetro"); "busquedas": 2 búsquedas de YouTube en español que den vídeos explicativos de ese tema a nivel FP/bachillerato.
 Responde SOLO con JSON: [{"tema":"...","resumen":"...","claves":["..."],"busquedas":["..."]}]`;
 
-  return streamClaude({ content: [{ type: "text", text: prompt }], maxTokens: 3500, model: MODELO_RAPIDO });
+  return streamIA({ content: [{ type: "text", text: prompt }], maxTokens: 3500, model: MODELO_RAPIDO });
 };
 
 export const config = { path: "/api/repaso" };

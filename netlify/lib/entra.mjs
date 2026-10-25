@@ -7,8 +7,12 @@ export const LIMITES = {
   pro: { simulacros: 60, paginas: 300, bloques: 400 },
 };
 
-export const MODELO = process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5";
-export const MODELO_RAPIDO = process.env.ANTHROPIC_MODEL_FAST || "claude-haiku-5-5";
+// IA que usa Entra: "gemini" (Google, tiene plan gratuito) o "anthropic" (Claude, de pago).
+// Si no se indica IA_PROVEEDOR, se usa Gemini cuando hay GEMINI_API_KEY.
+export const IA = process.env.IA_PROVEEDOR || (process.env.GEMINI_API_KEY ? "gemini" : "anthropic");
+const MODELOS = { gemini: ["gemini-2.5-flash", "gemini-2.5-flash-lite"], anthropic: ["claude-sonnet-5-5", "claude-haiku-5-5"] }[IA];
+export const MODELO = process.env.IA_MODELO || (IA === "anthropic" && process.env.ANTHROPIC_MODEL) || MODELOS[0];
+export const MODELO_RAPIDO = process.env.IA_MODELO_RAPIDO || (IA === "anthropic" && process.env.ANTHROPIC_MODEL_FAST) || MODELOS[1];
 
 export const admin = () =>
   createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
@@ -55,28 +59,52 @@ export async function sumarUso(db, userId, { simulacros = 0, paginas = 0, bloque
   await db.rpc("sumar_uso", { p_user: userId, p_mes: mesActual(), p_sim: simulacros, p_pag: paginas, p_blo: bloques });
 }
 
+/** Lanza la petición en streaming a la IA configurada. `content` va en formato de Anthropic (bloques text/image). */
+function pedirIA({ content, model, maxTokens }) {
+  if (IA === "gemini") {
+    // API de Gemini compatible con OpenAI
+    const parts = content.map((c) => c.type === "image"
+      ? { type: "image_url", image_url: { url: `data:${c.source.media_type};base64,${c.source.data}` } }
+      : { type: "text", text: c.text });
+    const extra = process.env.IA_RAZONAMIENTO ? { reasoning_effort: process.env.IA_RAZONAMIENTO } : {};
+    return fetch((process.env.GEMINI_API_URL || "https://generativelanguage.googleapis.com/v1beta/openai") + "/chat/completions", {
+      method: "POST",
+      headers: { authorization: `Bearer ${process.env.GEMINI_API_KEY}`, "content-type": "application/json" },
+      body: JSON.stringify({ model, max_tokens: maxTokens, stream: true, messages: [{ role: "user", content: parts }], ...extra }),
+    });
+  }
+  return fetch((process.env.ANTHROPIC_API_URL || "https://api.anthropic.com") + "/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": process.env.ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ model, max_tokens: maxTokens, stream: true, messages: [{ role: "user", content }] }),
+  });
+}
+
+/** Texto nuevo de un evento del stream ("" si no trae texto), o null si es un error */
+function textoDe(d) {
+  if (IA === "gemini") return d.error ? null : d.choices?.[0]?.delta?.content || "";
+  if (d.type === "error") return null;
+  return d.type === "content_block_delta" && d.delta?.type === "text_delta" ? d.delta.text : "";
+}
+
 /**
- * Llama a la API de Claude en streaming y devuelve una Response que va
+ * Llama a la IA en streaming y devuelve una Response que va
  * enviando el texto al navegador según se escribe (evita los límites de
  * tiempo de las funciones normales).
  */
-export function streamClaude({ content, model = MODELO, maxTokens = 8000, onDone }) {
+export function streamIA({ content, model = MODELO, maxTokens = 8000, onDone }) {
   const enc = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        const r = await fetch((process.env.ANTHROPIC_API_URL || "https://api.anthropic.com") + "/v1/messages", {
-          method: "POST",
-          headers: {
-            "x-api-key": process.env.ANTHROPIC_API_KEY,
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json",
-          },
-          body: JSON.stringify({ model, max_tokens: maxTokens, stream: true, messages: [{ role: "user", content }] }),
-        });
+        const r = await pedirIA({ content, model, maxTokens });
         if (!r.ok || !r.body) {
           const t = await r.text().catch(() => "");
-          console.error("Anthropic error", r.status, t.slice(0, 500));
+          console.error("Error de la IA", IA, r.status, t.slice(0, 500));
           controller.enqueue(enc.encode(`\n[[ERROR:${r.status === 429 || r.status === 529 ? "ocupado" : "ia"}]]`));
           controller.close();
           return;
@@ -87,19 +115,16 @@ export function streamClaude({ content, model = MODELO, maxTokens = 8000, onDone
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
-          buf += dec.decode(value, { stream: true });
+          buf += dec.decode(value, { stream: true }).replace(/\r/g, "");
           let i;
           while ((i = buf.indexOf("\n\n")) >= 0) {
             const evt = buf.slice(0, i); buf = buf.slice(i + 2);
             const line = evt.split("\n").find((l) => l.startsWith("data:"));
             if (!line) continue;
             let d; try { d = JSON.parse(line.slice(5)); } catch { continue; }
-            if (d.type === "content_block_delta" && d.delta?.type === "text_delta") {
-              ok = true;
-              controller.enqueue(enc.encode(d.delta.text));
-            } else if (d.type === "error") {
-              controller.enqueue(enc.encode(`\n[[ERROR:ia]]`));
-            }
+            const t = textoDe(d);
+            if (t === null) controller.enqueue(enc.encode(`\n[[ERROR:ia]]`));
+            else if (t) { ok = true; controller.enqueue(enc.encode(t)) }
           }
         }
         if (ok && onDone) await onDone().catch((e) => console.error("onDone", e));

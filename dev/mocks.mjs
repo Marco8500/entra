@@ -1,5 +1,6 @@
 // Simuladores SOLO para desarrollo local (no se despliegan):
-//  - API de Claude en http://localhost:4010  → respuestas en streaming con el mismo formato que Anthropic
+//  - IA en http://localhost:4010  → respuestas en streaming con formato de Anthropic (/v1/messages)
+//    y de OpenAI/Gemini (/v1/chat/completions)
 //  - API de Stripe  en http://localhost:4020  → clientes, Checkout (página o integrado), portal y suscripciones,
 //    webhooks firmados, y un Stripe.js simulado en /stripe.js
 // Uso: node dev/mocks.mjs   (lee STRIPE_WEBHOOK_SECRET, WEBHOOK_URL y WEBHOOK_DELAY_MS del entorno)
@@ -58,6 +59,24 @@ function respuestaIA(prompt, nImgs) {
 
 http.createServer(async (req, res) => {
   const body = await leerBody(req);
+  // Formato OpenAI, el que usa la API de Gemini compatible con OpenAI (GEMINI_API_URL=http://localhost:4010/v1)
+  if (req.method === "POST" && req.url === "/v1/chat/completions") {
+    if (!/^Bearer .+/.test(req.headers.authorization || "")) { res.writeHead(401); return res.end('[{"error":{"code":401}}]') }
+    const b = JSON.parse(body);
+    const parts = b.messages?.[0]?.content || [];
+    const prompt = parts.filter((c) => c.type === "text").map((c) => c.text).join("\n");
+    const imgs = parts.filter((c) => c.type === "image_url");
+    if (imgs.some((c) => !/^data:image\/\w+;base64,/.test(c.image_url?.url))) { res.writeHead(400); return res.end('[{"error":{"message":"imagen no válida"}}]') }
+    log("gemini", b.model, `stream=${b.stream}`, `imgs=${imgs.length}`, prompt.slice(0, 40).replace(/\n/g, " "));
+    const txt = respuestaIA(prompt, imgs.length);
+    res.writeHead(200, { "content-type": "text/event-stream" });
+    for (let i = 0; i < txt.length; i += 200) {
+      res.write(`data: ${JSON.stringify({ object: "chat.completion.chunk", choices: [{ index: 0, delta: { role: "assistant", content: txt.slice(i, i + 200) } }] })}\r\n\r\n`);
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    res.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta: {}, finish_reason: "stop" }] })}\r\n\r\ndata: [DONE]\r\n\r\n`);
+    return res.end();
+  }
   if (req.method !== "POST" || req.url !== "/v1/messages") { res.writeHead(404); return res.end() }
   if (!req.headers["x-api-key"] || !req.headers["anthropic-version"]) { res.writeHead(401); return res.end('{"type":"error"}') }
   const b = JSON.parse(body);
