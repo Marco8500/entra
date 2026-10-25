@@ -67,6 +67,10 @@ http.createServer(async (req, res) => {
     const ahora = Date.now(); while (peticiones.length && ahora - peticiones[0] > 60000) peticiones.shift();
     if (LIMITE_RPM && peticiones.length >= LIMITE_RPM) { log("gemini 429 (límite por minuto)"); res.writeHead(429); return res.end('[{"error":{"code":429,"message":"Quota exceeded"}}]') }
     peticiones.push(ahora);
+    // IA_AGOTADOS=modelo1,modelo2 simula modelos con el cupo diario gastado (o "*" para todos)
+    const agotados = (process.env.IA_AGOTADOS || "").split(",");
+    const bm = JSON.parse(body).model;
+    if (agotados.includes("*") || agotados.includes(bm)) { log(`gemini 429 cupo diario agotado (${bm})`); res.writeHead(429); return res.end(`[{"error":{"code":429,"message":"Quota exceeded for metric: generate_content_free_tier_requests, limit: 20, model: ${bm}, description: Generate content requests per day limit exceeded on Free Tier"}}]`) }
     const b = JSON.parse(body);
     const parts = b.messages?.[0]?.content || [];
     const prompt = parts.filter((c) => c.type === "text").map((c) => c.text).join("\n");

@@ -14,6 +14,19 @@ const MODELOS = { gemini: ["gemini-3.5-flash", "gemini-3.5-flash-lite"], anthrop
 export const MODELO = process.env.IA_MODELO || (IA === "anthropic" && process.env.ANTHROPIC_MODEL) || MODELOS[0];
 export const MODELO_RAPIDO = process.env.IA_MODELO_RAPIDO || (IA === "anthropic" && process.env.ANTHROPIC_MODEL_FAST) || MODELOS[1];
 
+// Modelos de reserva: si uno está agotado (cuota gratuita) o saturado, se prueba el siguiente.
+// Cada modelo de Gemini tiene su propio cupo gratuito diario. Se cambian con IA_RESERVA / IA_RESERVA_RAPIDO (separados por comas).
+const lista = (v) => (v || "").split(",").map((x) => x.trim()).filter(Boolean);
+const RESERVA = {
+  gemini: ["gemini-3-flash-preview", "gemini-flash-lite-latest", "gemini-3.5-flash-lite"],
+  anthropic: [],
+}[IA];
+const RESERVA_RAPIDO = { gemini: ["gemini-flash-lite-latest", "gemini-3.1-flash-lite", "gemini-3.5-flash"], anthropic: [] }[IA];
+const reserva = (model) =>
+  model === MODELO ? (process.env.IA_RESERVA ? lista(process.env.IA_RESERVA) : RESERVA)
+  : model === MODELO_RAPIDO ? (process.env.IA_RESERVA_RAPIDO ? lista(process.env.IA_RESERVA_RAPIDO) : RESERVA_RAPIDO) : [];
+const cadena = (model) => [...new Set([model, ...reserva(model)])];
+
 export const admin = () =>
   createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -103,11 +116,20 @@ export function streamIA({ content, model = MODELO, maxTokens = 8000, onDone }) 
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        const r = await pedirIA({ content, model, maxTokens });
-        if (!r.ok || !r.body) {
+        let r, agotado = 0, probados = 0;
+        for (const m of cadena(model)) {
+          r = await pedirIA({ content, model: m, maxTokens });
+          if (r.ok && r.body) break;
           const t = await r.text().catch(() => "");
-          console.error("Error de la IA", IA, r.status, t.slice(0, 500));
-          controller.enqueue(enc.encode(`\n[[ERROR:${r.status === 429 || r.status === 529 ? "ocupado" : "ia"}]]`));
+          console.error("Error de la IA", IA, m, r.status, t.slice(0, 300));
+          probados++;
+          if (/per day|perday/i.test(t)) agotado++;
+          if (![429, 500, 503, 529].includes(r.status)) break; // error que no se arregla cambiando de modelo
+        }
+        if (!r.ok || !r.body) {
+          // "cuota": se ha gastado el cupo gratuito de hoy en todos los modelos; "ocupado": saturación puntual
+          const codigo = agotado && agotado === probados ? "cuota" : [429, 503, 529].includes(r.status) ? "ocupado" : "ia";
+          controller.enqueue(enc.encode(`\n[[ERROR:${codigo}]]`));
           controller.close();
           return;
         }

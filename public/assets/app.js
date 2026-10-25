@@ -48,7 +48,7 @@ async function api(path, body, onText){
     onText?.(text);
   }
   const m = text.match(/\[\[ERROR:(\w+)\]\]/);
-  if (m) throw new ApiError(m[1], m[1] === "ocupado" ? "La IA está saturada ahora mismo. Prueba en un minuto." : "La IA ha fallado. Vuelve a intentarlo.");
+  if (m) throw new ApiError(m[1], { ocupado: "La IA está saturada ahora mismo. Prueba en un minuto.", cuota: "Hoy se ha agotado la IA gratuita. Vuelve a probar mañana." }[m[1]] || "La IA ha fallado. Vuelve a intentarlo.");
   return text;
 }
 function parseJSON(text){
