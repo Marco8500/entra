@@ -1,5 +1,6 @@
 // Utilidades compartidas por las funciones de Entra
 import { createClient } from "@supabase/supabase-js";
+import Stripe from "stripe";
 
 export const LIMITES = {
   free: { simulacros: 3, paginas: 15, bloques: 20 },
@@ -13,6 +14,12 @@ export const admin = () =>
   createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+
+// Cliente de Stripe. STRIPE_API_URL solo se usa en local para apuntar a un simulador.
+export const stripeClient = () => {
+  const u = process.env.STRIPE_API_URL ? new URL(process.env.STRIPE_API_URL) : null;
+  return new Stripe(process.env.STRIPE_SECRET_KEY, u ? { host: u.hostname, port: u.port, protocol: u.protocol.replace(":", "") } : undefined);
+};
 
 export const json = (data, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json" } });
@@ -50,7 +57,7 @@ export function streamClaude({ content, model = MODELO, maxTokens = 8000, onDone
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        const r = await fetch("https://api.anthropic.com/v1/messages", {
+        const r = await fetch((process.env.ANTHROPIC_API_URL || "https://api.anthropic.com") + "/v1/messages", {
           method: "POST",
           headers: {
             "x-api-key": process.env.ANTHROPIC_API_KEY,

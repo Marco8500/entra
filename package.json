@@ -5,7 +5,9 @@
   "type": "module",
   "description": "Entra: simulacros de examen con tus apuntes",
   "scripts": {
-    "dev": "netlify dev"
+    "dev": "netlify dev",
+    "mocks": "node dev/mocks.mjs",
+    "db": "supabase start"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.45.4",

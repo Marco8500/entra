@@ -51,7 +51,7 @@ Compra el dominio (por ejemplo `entra.app`, `entraexamen.com` o `usaentra.com`).
 
 ## 5. Netlify (la web)
 1. Edita `public/assets/config.js` con tu `SUPABASE_URL`, `SUPABASE_ANON_KEY`, precio y email de contacto.
-2. Sube la carpeta a un repositorio de GitHub y en Netlify: **Add new site → Import from Git** (recomendado, para que instale las dependencias). Build command: vacío. Publish directory: `public` (ya viene en `netlify.toml`).
+2. Sube la carpeta a un repositorio de GitHub y en Netlify: **Add new site → Import from Git** (recomendado, para que instale las dependencias). **Base directory: `entra-web`** (la web está en esa carpeta del repositorio). Build command: vacío. Publish directory: `public` (ya viene en `netlify.toml`).
 3. **Site configuration → Environment variables**:
 
 | Variable | Valor |
@@ -86,7 +86,21 @@ Compra el dominio (por ejemplo `entra.app`, `entraexamen.com` o `usaentra.com`).
 - Cada usuario solo puede leer sus propios datos (políticas RLS en Supabase). El plan y el uso solo los cambia el servidor.
 
 ## Desarrollo en local
+Todo funciona en tu ordenador sin cuentas reales: Supabase local (Docker) y simuladores de Stripe y de Claude.
+
+Necesitas Node 20+ y Docker en marcha.
 ```bash
 npm install
-npx netlify-cli dev   # crea un archivo .env con las variables del paso 5
+npm i -g netlify-cli supabase
+cp .env.local.example .env      # variables para local (no se sube a Git)
+supabase start                  # base de datos + login; aplica supabase/migrations
+npm run mocks                   # en otra terminal: Claude simulado (:4010) y Stripe simulado (:4020)
+netlify dev                     # en otra terminal: http://localhost:8888/app
 ```
+- Los emails del enlace mágico **no salen a Internet**: ábrelos en Mailpit, http://127.0.0.1:54324.
+- `public/assets/config.js` usa automáticamente las claves locales cuando la web se abre en `localhost`.
+- En la página de pago simulada usa `4242424242424242`; cualquier otra tarjeta se rechaza.
+- `ANTHROPIC_API_URL` y `STRIPE_API_URL` solo existen para apuntar a los simuladores. **No los pongas en Netlify.**
+- Para probar en local con tus cuentas reales de prueba: pon en `.env` tus claves, borra esas dos variables y usa
+  `stripe listen --forward-to localhost:8888/api/stripe-webhook` (Stripe CLI) para recibir los webhooks; el `whsec_...` que muestra va en `STRIPE_WEBHOOK_SECRET`.
+- Si cambias `supabase/schema.sql`, copia el cambio también en `supabase/migrations/` (es el mismo SQL) y ejecuta `supabase db reset`.

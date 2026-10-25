@@ -573,9 +573,13 @@ async function afterLogin(){
   const q = new URLSearchParams(location.search);
   await loadHistorial();
   go("home");
-  if (q.get("pago") === "ok") flash("¡Ya eres Pro! Puede tardar unos segundos en aparecer.", "notice");
+  if (q.get("pago") === "ok") { flash("¡Ya eres Pro! Puede tardar unos segundos en aparecer.", "notice"); esperarPro() }
   if (q.get("pro") === "1" && S.cuenta?.plan !== "pro") pagar("suscribir");
   if (q.has("pago") || q.has("pro")) history.replaceState(null, "", "/app");
+}
+// El webhook de Stripe puede llegar unos segundos después de volver del pago
+async function esperarPro(){
+  for (let i = 0; i < 10 && S.cuenta?.plan !== "pro"; i++) { await new Promise(r => setTimeout(r, 2000)); await refreshCuenta() }
 }
 $("#logout").onclick = () => sb.auth.signOut();
 $("#delAcc").onclick = () => {

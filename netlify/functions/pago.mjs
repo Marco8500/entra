@@ -1,7 +1,6 @@
 // POST /api/pago · crea la sesión de Stripe Checkout (suscripción Pro) o abre el portal de facturación
 // body: { accion: "suscribir" | "portal" }
-import Stripe from "stripe";
-import { admin, error, json } from "../lib/entra.mjs";
+import { admin, stripeClient, error, json } from "../lib/entra.mjs";
 
 export default async (req) => {
   if (req.method !== "POST") return error("metodo", "Usa POST.", 405);
@@ -11,7 +10,7 @@ export default async (req) => {
   const user = data?.user;
   if (!user) return error("no_auth", "Inicia sesión para continuar.", 401);
 
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  const stripe = stripeClient();
   const base = process.env.URL || new URL(req.url).origin; // Netlify define URL con el dominio del sitio
   const { accion } = await req.json().catch(() => ({}));
   const { data: perfil } = await db.from("perfiles").select("stripe_customer_id, plan").eq("id", user.id).maybeSingle();

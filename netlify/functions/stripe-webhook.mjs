@@ -1,9 +1,8 @@
 // POST /api/stripe-webhook · Stripe avisa de altas, cambios y bajas de la suscripción
-import Stripe from "stripe";
-import { admin } from "../lib/entra.mjs";
+import { admin, stripeClient } from "../lib/entra.mjs";
 
 export default async (req) => {
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  const stripe = stripeClient();
   const firma = req.headers.get("stripe-signature");
   const raw = await req.text();
   let evt;
