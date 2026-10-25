@@ -104,7 +104,7 @@ netlify dev                     # en otra terminal: http://localhost:8888/app
 - Los emails del enlace mágico **no salen a Internet**: ábrelos en Mailpit, http://127.0.0.1:54324.
 - `public/assets/config.js` usa automáticamente las claves locales cuando la web se abre en `localhost`.
 - En la página de pago simulada usa `4242424242424242`; cualquier otra tarjeta se rechaza.
-- `ANTHROPIC_API_URL` y `STRIPE_API_URL` solo existen para apuntar a los simuladores. **No los pongas en Netlify.**
+- `GEMINI_API_URL`, `ANTHROPIC_API_URL` y `STRIPE_API_URL` solo existen para apuntar a los simuladores. **No los pongas en Netlify.**
 - Para probar en local con tus cuentas reales de prueba: pon en `.env` tus claves, borra esas dos variables y usa
   `stripe listen --forward-to localhost:8888/api/stripe-webhook` (Stripe CLI) para recibir los webhooks; el `whsec_...` que muestra va en `STRIPE_WEBHOOK_SECRET`.
 - Si cambias `supabase/schema.sql`, copia el cambio también en `supabase/migrations/` (es el mismo SQL) y ejecuta `supabase db reset`.
