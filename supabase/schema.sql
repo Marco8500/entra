@@ -57,6 +57,8 @@ end $$;
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users
   for each row execute function public.crear_perfil();
+-- Solo la usa el trigger: que no se pueda llamar desde la API
+revoke execute on function public.crear_perfil() from public, anon, authenticated;
 
 -- Seguridad: cada usuario solo ve lo suyo
 alter table public.perfiles enable row level security;
