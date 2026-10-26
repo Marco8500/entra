@@ -196,7 +196,14 @@ function vLogin(){
     const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + "/app" });
     msg(error ? msgAuth(error) : `Si ${email} tiene cuenta, te llegará un email para poner una contraseña nueva.`, error ? "error" : "notice");
   };
-  const g = $("#google", el); if (g) g.onclick = () => sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: location.origin + "/app" + location.search } });
+  const g = $("#google", el);
+  if (g) g.onclick = async () => {
+    // Si Google no está activado en Supabase, avisamos en vez de mandar a una página de error
+    const ok = await fetch(`${CFG.SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: CFG.SUPABASE_ANON_KEY } })
+      .then((r) => r.json()).then((d) => d.external?.google).catch(() => true);
+    if (!ok) return msg("El acceso con Google no está disponible ahora mismo. Crea tu cuenta con email y contraseña.");
+    sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: location.origin + "/app" + location.search } });
+  };
   return el;
 }
 // Al volver del email de "he olvidado mi contraseña"
