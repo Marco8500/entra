@@ -15,3 +15,8 @@ binding = "AI"
 
 [observability]
 enabled = true
+
+# Valores públicos (los secretos van en Settings → Variables and Secrets del Worker)
+[vars]
+SUPABASE_URL = "https://pabuoxrtijtldxzmyeqn.supabase.co"
+STRIPE_PRICE_ID = "price_1UUXcwHbezUyl81ZsZ6ZuVg8"
