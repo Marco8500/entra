@@ -34,6 +34,8 @@ async function api(path, body, onText){
     signal: ctl?.signal,
   });
   const ct = r.headers.get("content-type") || "";
+  // 502/504: Netlify ha cortado la petición porque la IA tardaba demasiado → se reintenta como "saturada"
+  if (r.status === 502 || r.status === 504) throw new ApiError("ocupado", "La IA está saturada ahora mismo. Prueba en un minuto.");
   if (!r.ok) {
     let d = {}; try { d = await r.json() } catch {}
     throw new ApiError(d.error || "http", d.mensaje || "Algo ha fallado. Vuelve a intentarlo.", r.status);

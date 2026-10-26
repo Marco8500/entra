@@ -115,6 +115,11 @@ export function streamIA({ content, model = MODELO, maxTokens = 8000, onDone }) 
   const enc = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
+      // Netlify corta con 504 si pasan ~30 s sin enviar nada: mientras la IA piensa o cambiamos de modelo,
+      // mandamos un espacio cada 8 s (el cliente lo ignora al leer el JSON)
+      let latido = setInterval(() => { try { controller.enqueue(enc.encode(" ")) } catch {} }, 8000);
+      const parar = () => { clearInterval(latido); latido = null };
+      controller.enqueue(enc.encode(" "));
       try {
         let r, agotado = 0, probados = 0;
         for (const m of cadena(model)) {
@@ -129,6 +134,7 @@ export function streamIA({ content, model = MODELO, maxTokens = 8000, onDone }) 
         if (!r.ok || !r.body) {
           // "cuota": se ha gastado el cupo gratuito de hoy en todos los modelos; "ocupado": saturación puntual
           const codigo = agotado && agotado === probados ? "cuota" : [429, 503, 529].includes(r.status) ? "ocupado" : "ia";
+          parar();
           controller.enqueue(enc.encode(`\n[[ERROR:${codigo}]]`));
           controller.close();
           return;
@@ -148,12 +154,14 @@ export function streamIA({ content, model = MODELO, maxTokens = 8000, onDone }) 
             let d; try { d = JSON.parse(line.slice(5)); } catch { continue; }
             const t = textoDe(d);
             if (t === null) controller.enqueue(enc.encode(`\n[[ERROR:ia]]`));
-            else if (t) { ok = true; controller.enqueue(enc.encode(t)) }
+            else if (t) { if (!ok) parar(); ok = true; controller.enqueue(enc.encode(t)) }
           }
         }
+        parar();
         if (ok && onDone) await onDone().catch((e) => console.error("onDone", e));
         controller.close();
       } catch (e) {
+        parar();
         console.error(e);
         try { controller.enqueue(enc.encode(`\n[[ERROR:ia]]`)); controller.close(); } catch {}
       }
