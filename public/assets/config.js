@@ -21,6 +21,6 @@ window.ENTRA_CONFIG = ENTRA_LOCAL
       // Stripe → Desarrolladores → Claves de API → "Clave publicable" (pk_test_... / pk_live_...).
       // Con ella el pago se hace dentro de la web; si se deja vacía, se usa la página de pago de Stripe.
       STRIPE_PUBLISHABLE_KEY: "pk_test_51USvvsHbezUyl81ZHnu4gAGTesEu82ZtstwaEx7BYqsFiWEVihs7W1cEgauK12TCfDcq9GhnTxcl2Jk96DqeXUTK000rWl47Sv",
-      // Ponlo a true cuando "Google" esté activado en Supabase (Authentication → Sign In / Providers)
-      GOOGLE: false,
+      // Botón "Continuar con Google" (Google activado en Supabase → Authentication → Sign In / Providers)
+      GOOGLE: true,
     };
