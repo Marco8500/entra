@@ -115,7 +115,7 @@ function flash(msg, kind = "error"){
 function go(v){ if (S.checkout && v !== "pago") { S.checkout.destroy(); S.checkout = null } S.view = v; render(); window.scrollTo({ top: 0, behavior: "instant" }) }
 function render(){
   document.querySelectorAll("#steps span").forEach(s => s.classList.toggle("on", s.dataset.s === (S.view === "review" ? "results" : S.view)));
-  const V = { login: vLogin, codigo: vCodigo, terms: vTerms, pago: vPago, home: vHome, topics: vTopics, format: vFormat, exam: vExam, results: vResults, review: vReview, busy: vBusy }[S.view];
+  const V = { login: vLogin, clave: vClave, terms: vTerms, pago: vPago, home: vHome, topics: vTopics, format: vFormat, exam: vExam, results: vResults, review: vReview, busy: vBusy }[S.view];
   if (!V) return;
   $("#view").innerHTML = ""; $("#view").append(V());
 }
@@ -142,77 +142,82 @@ function fail(where, e){
 }
 
 /* ============ login y términos ============ */
-const msgAuth = (e) => /rate limit|seconds/i.test(e.message) ? "Has pedido varios códigos seguidos. Espera un minuto y vuelve a probar."
-  : /invalid|expired/i.test(e.message) ? "El código no es correcto o ha caducado. Revísalo o pide otro." : e.message;
-const PEND = "entra.login";
+const msgAuth = (e) => {
+  const m = e?.message || "";
+  if (/already registered|already exists/i.test(m)) return "Ese email ya tiene cuenta. Pulsa \"Ya tengo cuenta\" y entra con tu contraseña.";
+  if (/invalid login credentials/i.test(m)) return "Email o contraseña incorrectos.";
+  if (/email not confirmed/i.test(m)) return "Antes de entrar, confirma tu email con el enlace que te hemos enviado.";
+  if (/password/i.test(m) && /least|short|weak/i.test(m)) return "La contraseña es demasiado corta o débil. Usa al menos 8 caracteres.";
+  if (/rate limit|seconds/i.test(m)) return "Demasiados intentos seguidos. Espera un minuto y vuelve a probar.";
+  return m || "Algo ha fallado. Vuelve a intentarlo.";
+};
 function vLogin(){
+  const nuevo = S.loginModo !== "entrar";
   const el = h(`<section class="sheet">
-    <span class="eyebrow">Empieza gratis</span>
-    <h2 style="font-size:28px">Crea tu cuenta y haz tu primer simulacro</h2>
-    <p class="muted">Solo tu email. ${CFG.CODIGO_EN_EMAIL ? "Te mandamos un código, lo escribes aquí y listo." : "Te mandamos un email y pulsas el botón para entrar."} Sin contraseñas.</p>
+    <span class="eyebrow">${nuevo ? "Empieza gratis" : "Entrar"}</span>
+    <h2 style="font-size:28px">${nuevo ? "Crea tu cuenta y haz tu primer simulacro" : "Entra en tu cuenta"}</h2>
+    <div class="presets" role="tablist"><button class="chip ${nuevo ? "on" : ""}" id="tNuevo">Crear cuenta</button><button class="chip ${nuevo ? "" : "on"}" id="tEntrar">Ya tengo cuenta</button></div>
+    ${CFG.GOOGLE ? `<button class="btn btn-ghost" id="google">Continuar con Google</button><div class="sep">o con tu email</div>` : ""}
     <form id="f" style="display:flex;flex-direction:column;gap:12px" novalidate>
-      <label class="field" for="email">Tu email<input type="email" id="email" required autocomplete="email" inputmode="email" placeholder="tu@email.com"></label>
-      <label class="check" for="acepto"><input type="checkbox" id="acepto"><span>Tengo <b>16 años o más</b> y acepto los <a href="/terminos" target="_blank">términos</a> y la <a href="/privacidad" target="_blank">privacidad</a>.</span></label>
-      <button class="btn btn-primary" type="submit" id="enviar">${CFG.CODIGO_EN_EMAIL ? "Enviarme el código" : "Enviarme el email"}</button>
+      <label class="field" for="email">Email<input type="email" id="email" required autocomplete="email" inputmode="email" placeholder="tu@email.com" value="${esc(S.loginEmail || "")}"></label>
+      <label class="field" for="clave">Contraseña<input type="password" id="clave" required minlength="8" autocomplete="${nuevo ? "new-password" : "current-password"}" placeholder="${nuevo ? "Mínimo 8 caracteres" : "Tu contraseña"}"></label>
+      ${nuevo ? `<label class="check" for="acepto"><input type="checkbox" id="acepto"><span>Tengo <b>16 años o más</b> y acepto los <a href="/terminos" target="_blank">términos</a> y la <a href="/privacidad" target="_blank">privacidad</a>.</span></label>` : ""}
+      <button class="btn btn-primary" type="submit" id="enviar">${nuevo ? "Crear mi cuenta" : "Entrar"}</button>
     </form>
-    <p class="small muted">¿Ya tienes cuenta? Pon el mismo email y entrarás a la tuya.</p>
-    ${CFG.GOOGLE ? `<div class="sep">o</div><button class="btn btn-ghost" id="google">Continuar con Google</button>` : ""}
+    ${nuevo ? "" : `<button class="btn btn-ghost btn-sm" id="olvido">He olvidado mi contraseña</button>`}
     <div id="msg"></div>
   </section>`);
+  const msg = (t, k = "error") => $("#msg", el).innerHTML = `<div class="${k}">${esc(t)}</div>`;
+  $("#tNuevo", el).onclick = () => { S.loginEmail = $("#email", el).value; S.loginModo = "nuevo"; render() };
+  $("#tEntrar", el).onclick = () => { S.loginEmail = $("#email", el).value; S.loginModo = "entrar"; render() };
   $("#f", el).onsubmit = async (e) => {
     e.preventDefault();
-    const email = $("#email", el).value.trim().toLowerCase();
-    const msg = (t) => $("#msg", el).innerHTML = `<div class="error">${esc(t)}</div>`;
+    const email = $("#email", el).value.trim().toLowerCase(), password = $("#clave", el).value;
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return msg("Escribe un email válido.");
-    if (!$("#acepto", el).checked) return msg("Marca la casilla para continuar.");
-    const b = $("#enviar", el); b.disabled = true; b.textContent = "Enviando…";
-    const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + "/app" + location.search } });
-    b.disabled = false; b.textContent = CFG.CODIGO_EN_EMAIL ? "Enviarme el código" : "Enviarme el email";
+    if (password.length < 8) return msg(nuevo ? "La contraseña tiene que tener al menos 8 caracteres." : "Escribe tu contraseña.");
+    if (nuevo && !$("#acepto", el).checked) return msg("Marca la casilla para continuar.");
+    const b = $("#enviar", el); b.disabled = true; b.textContent = nuevo ? "Creando tu cuenta…" : "Entrando…";
+    if (nuevo) try { localStorage.setItem("entra.acepto", JSON.stringify({ email, at: new Date().toISOString() })) } catch {}
+    const { data, error } = nuevo
+      ? await sb.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + "/app" } })
+      : await sb.auth.signInWithPassword({ email, password });
+    b.disabled = false; b.textContent = nuevo ? "Crear mi cuenta" : "Entrar";
     if (error) return msg(msgAuth(error));
-    try { localStorage.setItem("entra.acepto", JSON.stringify({ email, at: new Date().toISOString() })); sessionStorage.setItem(PEND, JSON.stringify({ email, at: Date.now() })) } catch {}
-    S.loginEmail = email; S.reenvioAt = Date.now(); go("codigo");
+    // Si Supabase pide confirmar el email, no hay sesión todavía
+    if (nuevo && !data.session) {
+      if (!data.user?.identities?.length) return msg(msgAuth({ message: "already registered" }));
+      return msg(`Te hemos enviado un email a ${email}. Pulsa el enlace para activar tu cuenta.`, "notice");
+    }
+  };
+  const ol = $("#olvido", el);
+  if (ol) ol.onclick = async () => {
+    const email = $("#email", el).value.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return msg("Escribe tu email arriba y vuelve a pulsar.");
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + "/app" });
+    msg(error ? msgAuth(error) : `Si ${email} tiene cuenta, te llegará un email para poner una contraseña nueva.`, error ? "error" : "notice");
   };
   const g = $("#google", el); if (g) g.onclick = () => sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: location.origin + "/app" + location.search } });
   return el;
 }
-function vCodigo(){
-  const email = S.loginEmail;
+// Al volver del email de "he olvidado mi contraseña"
+function vClave(){
   const el = h(`<section class="sheet">
-    <span class="eyebrow">Revisa tu correo</span>
-    ${CFG.CODIGO_EN_EMAIL ? `<h2 style="font-size:28px">Escribe el código</h2>
-    <p class="muted">Te lo hemos enviado a <b>${esc(email)}</b>. Si no lo ves, mira en <b>spam</b> o <b>promociones</b>.</p>
-    <form id="fc" style="display:flex;flex-direction:column;gap:12px">
-      <label class="field" for="codigo">Código<input id="codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="123456" style="font-size:28px;letter-spacing:.3em;text-align:center"></label>
-      <button class="btn btn-primary" type="submit" id="entrar">Entrar</button>
+    <span class="eyebrow">Contraseña nueva</span>
+    <h2 style="font-size:26px">Pon tu contraseña nueva</h2>
+    <form id="f" style="display:flex;flex-direction:column;gap:12px">
+      <label class="field" for="clave">Contraseña<input type="password" id="clave" autocomplete="new-password" placeholder="Mínimo 8 caracteres"></label>
+      <button class="btn btn-primary" type="submit">Guardar</button>
     </form>
-    <p class="small muted">También puedes pulsar el botón del email.</p>` : `<h2 style="font-size:28px">Abre tu email</h2>
-    <p class="muted">Te hemos enviado un email a <b>${esc(email)}</b>. Ábrelo y pulsa el botón para entrar. Si no lo ves, mira en <b>spam</b> o <b>promociones</b>.</p>
-    <p class="small muted">Puedes cerrar esta pestaña: el botón del email te traerá de vuelta ya dentro.</p>`}
     <div id="msg"></div>
-    <div class="row"><button class="btn btn-ghost" id="reenviar"></button><button class="btn btn-ghost" id="cambiar">Cambiar email</button></div>
   </section>`);
-  const inp = $("#codigo", el) || h("<input>"), msg = (t, k = "error") => $("#msg", el).innerHTML = `<div class="${k}">${esc(t)}</div>`;
-  const verificar = async () => {
-    const token = inp.value.replace(/\D/g, "");
-    if (token.length < 6) return msg("El código tiene 6 cifras.");
-    $("#entrar", el).disabled = true;
-    const { error } = await sb.auth.verifyOtp({ email, token, type: "email" });
-    $("#entrar", el).disabled = false;
-    if (error) { inp.select(); return msg(msgAuth(error)) }
-    try { sessionStorage.removeItem(PEND) } catch {}
+  $("#f", el).onsubmit = async (e) => {
+    e.preventDefault();
+    const password = $("#clave", el).value;
+    if (password.length < 8) return $("#msg", el).innerHTML = `<div class="error">Mínimo 8 caracteres.</div>`;
+    const { error } = await sb.auth.updateUser({ password });
+    if (error) return $("#msg", el).innerHTML = `<div class="error">${esc(msgAuth(error))}</div>`;
+    S.recuperando = false; await afterLogin(); flash("Contraseña cambiada.", "notice");
   };
-  inp.oninput = () => { inp.value = inp.value.replace(/\D/g, ""); if (inp.value.length === (CFG.OTP_LENGTH || 6)) verificar() };
-  const fc = $("#fc", el); if (fc) fc.onsubmit = (e) => { e.preventDefault(); verificar() };
-  const rb = $("#reenviar", el);
-  const tick = () => { const s = Math.ceil((S.reenvioAt + 60000 - Date.now()) / 1000); rb.disabled = s > 0; rb.textContent = s > 0 ? `Reenviar en ${s} s` : CFG.CODIGO_EN_EMAIL ? "Reenviar código" : "Reenviar email"; if (s > 0 && S.view === "codigo") setTimeout(tick, 1000) };
-  tick();
-  rb.onclick = async () => {
-    const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + "/app" + location.search } });
-    if (error) return msg(msgAuth(error));
-    S.reenvioAt = Date.now(); tick(); msg(CFG.CODIGO_EN_EMAIL ? "Te hemos mandado un código nuevo." : "Te hemos mandado otro email.", "notice");
-  };
-  $("#cambiar", el).onclick = () => { try { sessionStorage.removeItem(PEND) } catch {} go("login") };
-  if (CFG.CODIGO_EN_EMAIL) requestAnimationFrame(() => inp.focus());
   return el;
 }
 function vTerms(){
@@ -678,6 +683,7 @@ function makePdf(){
 
 /* ============ arranque ============ */
 async function afterLogin(){
+  if (S.recuperando) return go("clave");
   $("#logout").hidden = false; $("#delAcc").hidden = false;
   if (!S.cuenta) await refreshCuenta();
   if (S.cuenta && !S.cuenta.terminos) {
@@ -710,14 +716,13 @@ $("#delAcc").onclick = () => {
     catch (e) { box.innerHTML = `<div class="error">${esc(e.message)}</div>` }
   };
 };
+S.recuperando = /type=recovery/.test(location.hash); // viene del email de "he olvidado mi contraseña"
 sb.auth.onAuthStateChange((evt, session) => {
+  if (evt === "PASSWORD_RECOVERY") S.recuperando = true;
   const was = !!S.session; S.session = session;
   if (session && !was) { refreshCuenta().then(afterLogin) }
-  if (!session) { S.cuenta = null; drawAccount(); $("#logout").hidden = true; $("#delAcc").hidden = true; if (S.view !== "codigo") go("login") }
+  if (S.recuperando && session) return go("clave");
+  if (!session) { S.cuenta = null; drawAccount(); $("#logout").hidden = true; $("#delAcc").hidden = true; go("login") }
 });
-sb.auth.getSession().then(({ data }) => {
-  if (data.session) return;
-  let p = null; try { p = JSON.parse(sessionStorage.getItem(PEND)) } catch {}
-  if (p?.email && Date.now() - p.at < 3600000) { S.loginEmail = p.email; S.reenvioAt = p.at; go("codigo") } else go("login");
-});
+sb.auth.getSession().then(({ data }) => { if (!data.session) go("login") });
 })();
