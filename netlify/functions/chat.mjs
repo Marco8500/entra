@@ -1,10 +1,10 @@
 // POST /api/chat · tutor de Entra: reenvía la pregunta al escenario de Make (webhook → IA → respuesta)
 // body: { mensaje, historial:[{de:"alumno"|"tutor", texto}], contexto }
-import { autenticar, error, json, texto } from "../lib/entra.mjs";
+import { env, autenticar, error, json, texto } from "../lib/entra.mjs";
 
 export default async (req) => {
   if (req.method !== "POST") return error("metodo", "Usa POST.", 405);
-  if (!process.env.MAKE_CHAT_URL) return error("chat_off", "El tutor no está disponible ahora mismo.", 503);
+  if (!env("MAKE_CHAT_URL")) return error("chat_off", "El tutor no está disponible ahora mismo.", 503);
   const a = await autenticar(req);
   if (a.fallo) return a.fallo;
   let b;
@@ -19,7 +19,7 @@ export default async (req) => {
   const historial = (Array.isArray(b.historial) ? b.historial : []).slice(-8)
     .map((m) => `${m?.de === "tutor" ? "Tutor" : "Alumno"}: ${texto(m?.texto, 600)}`).join("\n");
   try {
-    const r = await fetch(process.env.MAKE_CHAT_URL, {
+    const r = await fetch(env("MAKE_CHAT_URL"), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ mensaje, historial, contexto: texto(b.contexto, 4000), plan: a.plan === "pro" ? "Pro" : "Gratis" }),

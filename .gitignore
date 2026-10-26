@@ -3,3 +3,5 @@ node_modules/
 .netlify/
 supabase/.temp/
 supabase/.branches/
+.dev.vars
+.wrangler/

@@ -1,5 +1,5 @@
 // POST /api/borrar · borra la cuenta y todos sus datos (apuntes, simulacros, uso, perfil)
-import { admin, stripeClient, error, json } from "../lib/entra.mjs";
+import { env, admin, stripeClient, error, json } from "../lib/entra.mjs";
 
 export default async (req) => {
   if (req.method !== "POST") return error("metodo", "Usa POST.", 405);
@@ -11,7 +11,7 @@ export default async (req) => {
 
   // Cancela la suscripción si la hay, para no seguir cobrando
   const { data: perfil } = await db.from("perfiles").select("stripe_customer_id").eq("id", user.id).maybeSingle();
-  if (perfil?.stripe_customer_id && process.env.STRIPE_SECRET_KEY) {
+  if (perfil?.stripe_customer_id && env("STRIPE_SECRET_KEY")) {
     try {
       const stripe = stripeClient();
       const subs = await stripe.subscriptions.list({ customer: perfil.stripe_customer_id, status: "all", limit: 10 });

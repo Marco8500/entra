@@ -72,10 +72,11 @@ http.createServer(async (req, res) => {
     const bm = JSON.parse(body).model;
     if (agotados.includes("*") || agotados.includes(bm)) { log(`gemini 429 cupo diario agotado (${bm})`); res.writeHead(429); return res.end(`[{"error":{"code":429,"message":"Quota exceeded for metric: generate_content_free_tier_requests, limit: 20, model: ${bm}, description: Generate content requests per day limit exceeded on Free Tier"}}]`) }
     const b = JSON.parse(body);
-    const parts = b.messages?.[0]?.content || [];
+    const c0 = b.messages?.[0]?.content || [];
+    const parts = typeof c0 === "string" ? [{ type: "text", text: c0 }] : c0;
     const prompt = parts.filter((c) => c.type === "text").map((c) => c.text).join("\n");
     const imgs = parts.filter((c) => c.type === "image_url");
-    if (imgs.some((c) => !/^data:image\/\w+;base64,/.test(c.image_url?.url))) { res.writeHead(400); return res.end('[{"error":{"message":"imagen no válida"}}]') }
+    if (imgs.some((c) => !/^data:image\/\w+;base64,/.test((typeof c.image_url === "string" ? c.image_url : c.image_url?.url)))) { res.writeHead(400); return res.end('[{"error":{"message":"imagen no válida"}}]') }
     log("gemini", b.model, `stream=${b.stream}`, `imgs=${imgs.length}`, prompt.slice(0, 40).replace(/\n/g, " "));
     const txt = respuestaIA(prompt, imgs.length);
     res.writeHead(200, { "content-type": "text/event-stream" });

@@ -1,0 +1,9 @@
+# Cloudflare Pages: web estática en public/ y API en functions/api/*
+name = "entra"
+pages_build_output_dir = "public"
+compatibility_date = "2026-06-01"
+compatibility_flags = ["nodejs_compat"]
+
+# IA de Cloudflare (Workers AI), último recurso de la cadena de IAs
+[ai]
+binding = "AI"

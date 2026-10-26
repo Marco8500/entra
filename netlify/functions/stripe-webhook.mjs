@@ -1,5 +1,5 @@
 // POST /api/stripe-webhook · Stripe avisa de altas, cambios y bajas de la suscripción
-import { admin, stripeClient } from "../lib/entra.mjs";
+import { env, admin, stripeClient } from "../lib/entra.mjs";
 
 export default async (req) => {
   const stripe = stripeClient();
@@ -7,7 +7,7 @@ export default async (req) => {
   const raw = await req.text();
   let evt;
   try {
-    evt = stripe.webhooks.constructEvent(raw, firma, process.env.STRIPE_WEBHOOK_SECRET);
+    evt = await stripe.webhooks.constructEventAsync(raw, firma, env("STRIPE_WEBHOOK_SECRET"));
   } catch (e) {
     return new Response("Firma no válida", { status: 400 });
   }

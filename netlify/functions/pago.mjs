@@ -1,7 +1,7 @@
 // POST /api/pago · crea la sesión de Stripe Checkout (suscripción Pro) o abre el portal de facturación
 // body: { accion: "suscribir" | "portal", embebido: bool }
 // Con embebido=true devuelve { clientSecret } para mostrar el formulario de pago dentro de la web.
-import { admin, stripeClient, error, json } from "../lib/entra.mjs";
+import { env, admin, stripeClient, error, json } from "../lib/entra.mjs";
 
 export default async (req) => {
   if (req.method !== "POST") return error("metodo", "Usa POST.", 405);
@@ -12,7 +12,7 @@ export default async (req) => {
   if (!user) return error("no_auth", "Inicia sesión para continuar.", 401);
 
   const stripe = stripeClient();
-  const base = process.env.URL || new URL(req.url).origin; // Netlify define URL con el dominio del sitio
+  const base = env("URL") || new URL(req.url).origin; // Netlify define URL con el dominio del sitio
   const { accion, embebido } = await req.json().catch(() => ({}));
   const { data: perfil } = await db.from("perfiles").select("stripe_customer_id, plan").eq("id", user.id).maybeSingle();
 
@@ -33,7 +33,7 @@ export default async (req) => {
   }
   const comun = {
     mode: "subscription",
-    line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
+    line_items: [{ price: env("STRIPE_PRICE_ID"), quantity: 1 }],
     client_reference_id: user.id,
     customer,
     customer_update: { name: "auto", address: "auto" },
