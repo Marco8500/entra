@@ -116,7 +116,7 @@ function flash(msg, kind = "error"){
 function go(v){ if (S.checkout && v !== "pago") { S.checkout.destroy(); S.checkout = null } S.view = v; render(); window.scrollTo({ top: 0, behavior: "instant" }) }
 function render(){
   document.querySelectorAll("#steps span").forEach(s => s.classList.toggle("on", s.dataset.s === (S.view === "review" ? "results" : S.view)));
-  const V = { login: vLogin, clave: vClave, terms: vTerms, pago: vPago, home: vHome, topics: vTopics, format: vFormat, exam: vExam, results: vResults, review: vReview, busy: vBusy }[S.view];
+  const V = { testEstudio: vTestEstudio, metodo: vMetodo, login: vLogin, clave: vClave, terms: vTerms, pago: vPago, home: vHome, topics: vTopics, format: vFormat, exam: vExam, results: vResults, review: vReview, busy: vBusy }[S.view];
   if (!V) return;
   $("#view").innerHTML = ""; $("#view").append(V());
 }
@@ -280,12 +280,162 @@ function vPago(){
 }
 
 /* ============ 1. apuntes ============ */
+/* ============ prepárate para tu examen + test de método de estudio ============ */
+const METODOS = {
+  pomodoro: { nombre: "Pomodoro", icono: "🍅",
+    por: "Te cuesta mantener la concentración mucho rato y el móvil te tira. Trabajar en bloques cortos con descansos te mantiene enfocado sin agotarte.",
+    como: ["25 minutos de estudio sin móvil (en otra habitación o en modo avión).", "5 minutos de descanso de verdad: levántate, bebe agua.", "Cada 4 pomodoros, un descanso largo de 15-30 minutos.", "Antes de empezar, apunta qué vas a hacer en ese pomodoro."],
+    entra: "Un simulacro Rápido (10 test + 2 cortas) cabe en un pomodoro. Repasa los fallos en el siguiente.",
+    sesion: (d) => d > 14 ? "3 pomodoros al día" : d > 3 ? "4-6 pomodoros al día" : "6-8 pomodoros al día, con descansos" },
+  espaciada: { nombre: "Repetición espaciada", icono: "🔁",
+    por: "Recuerdas mejor cuando repasas poco y a menudo, y te van las asignaturas con mucho que memorizar. Repasar justo antes de olvidar fija los datos a largo plazo.",
+    como: ["Estudia un tema y repásalo al día siguiente, a los 3 días y a la semana.", "Haz tarjetas pregunta-respuesta con los datos clave (fechas, cifras, definiciones).", "Repasa primero las tarjetas que fallas.", "Mejor 30 minutos cada día que 4 horas un solo día."],
+    entra: "Repite simulacros cortos en días distintos y usa \"Examinarme solo de mis fallos\" como tus tarjetas.",
+    sesion: (d) => d > 14 ? "30-45 minutos al día" : d > 3 ? "1 hora al día en 2 tandas" : "2 tandas de 1 hora al día" },
+  feynman: { nombre: "Técnica Feynman", icono: "🗣️",
+    por: "Aprendes cuando entiendes el porqué y lo puedes contar. Explicarlo con tus palabras te enseña enseguida qué no sabes.",
+    como: ["Elige un concepto y explícalo en voz alta como si se lo contaras a alguien de 12 años.", "Donde te atasques, vuelve a los apuntes: ahí está tu hueco.", "Simplifica y usa ejemplos propios.", "Si puedes, explícaselo a un compañero."],
+    entra: "Responde las preguntas cortas en voz alta antes de escribirlas y pregúntale al Tutor lo que no entiendas.",
+    sesion: (d) => d > 14 ? "un tema explicado al día" : d > 3 ? "2-3 temas explicados al día" : "explica en voz alta todos los temas que entran" },
+  esquemas: { nombre: "Esquemas y mapas mentales", icono: "🗺️",
+    por: "Recuerdas lo que ves y te ayuda tener una visión de conjunto. Ordenar el temario en un esquema te dice por dónde empezar y cómo se relaciona todo.",
+    como: ["Haz un mapa por tema: idea central en medio y ramas con lo importante.", "Usa colores: uno para definiciones, otro para cifras, otro para ejemplos.", "Pocas palabras por rama; dibuja si te ayuda.", "Repasa mirando solo el mapa e intenta reconstruirlo sin mirar."],
+    entra: "Usa \"Qué entra\" para ver los temas de un vistazo y la hoja de repaso en PDF como esquema final.",
+    sesion: (d) => d > 14 ? "un esquema nuevo cada día" : d > 3 ? "repasa 2-3 esquemas al día" : "repasa todos los esquemas cada día" },
+  simulacros: { nombre: "Práctica con exámenes", icono: "📝",
+    por: "Aprendes poniéndote a prueba y corrigiendo tus errores. Releer te aburre; hacer preguntas te activa y te dice exactamente qué te falta.",
+    como: ["Estudia un tema rápido y ponte a prueba enseguida.", "Haz simulacros con el formato y el tiempo del examen real.", "Después de cada simulacro, repasa solo lo que fallaste.", "Repite hasta que saques más de un 8."],
+    entra: "Es justo lo que hace Entra: simulacro con el formato de tu profe, nota y repaso de fallos. Úsalo mucho.",
+    sesion: (d) => d > 14 ? "un simulacro cada 3 días" : d > 3 ? "un simulacro al día" : "un simulacro completo al día y repaso de fallos" },
+  bloques: { nombre: "Bloques de estudio profundo", icono: "🎯",
+    por: "Cuando te pones, aguantas mucho rato concentrado y te cunde. Bloques largos sin interrupciones te permiten avanzar temas enteros de una vez.",
+    como: ["Bloques de 60-90 minutos con un objetivo concreto (\"terminar el tema 3\").", "Fuera todo: móvil lejos, notificaciones apagadas.", "Descanso de 15 minutos entre bloques.", "No más de 3-4 bloques al día para no quemarte."],
+    entra: "Haz el simulacro \"Como mi profe (39+5)\" de una sentada, con el tiempo real.",
+    sesion: (d) => d > 14 ? "1 bloque al día" : d > 3 ? "2 bloques al día" : "3 bloques al día" },
+};
+const TEST = [
+  { p: "¿Cuánto aguantas estudiando concentrado sin mirar el móvil?", o: [["Menos de 20 minutos", { pomodoro: 2 }], ["Entre 20 y 45 minutos", { pomodoro: 1, espaciada: 1 }], ["Más de una hora", { bloques: 2 }]] },
+  { p: "¿Qué es lo que mejor te funciona al estudiar?", o: [["Hacer esquemas y dibujos", { esquemas: 2 }], ["Explicarlo en voz alta", { feynman: 2 }], ["Hacerme preguntas tipo examen", { simulacros: 2 }], ["Repasar un poco cada día", { espaciada: 2 }]] },
+  { p: "¿Cómo recuerdas mejor algo?", o: [["Si lo veo: colores, diagramas", { esquemas: 2 }], ["Si lo entiendo y sé contarlo", { feynman: 2 }], ["Si lo repito varias veces", { espaciada: 2 }], ["Si me equivoco y lo corrijo", { simulacros: 2 }]] },
+  { p: "¿Cuándo sueles empezar a estudiar para un examen?", o: [["Semanas antes", { espaciada: 2 }], ["Unos días antes", { pomodoro: 1, simulacros: 1 }], ["La noche anterior", { simulacros: 1, bloques: 1 }]] },
+  { p: "¿Qué te frena más cuando estudias?", o: [["El móvil y las distracciones", { pomodoro: 2 }], ["Aburrirme de leer lo mismo", { simulacros: 1, feynman: 1 }], ["No saber por dónde empezar", { esquemas: 2 }], ["Nada: si me pongo, me pongo", { bloques: 2 }]] },
+  { p: "¿Cómo prefieres estudiar?", o: [["Con alguien, explicándonos cosas", { feynman: 2 }], ["Solo, a mi ritmo", { bloques: 1, espaciada: 1 }], ["Con alguien que me pregunte", { simulacros: 2 }]] },
+  { p: "¿Qué te cuesta más de una asignatura?", o: [["Memorizar datos, fechas, cifras", { espaciada: 2 }], ["Entender los conceptos", { feynman: 2 }], ["Relacionar unos temas con otros", { esquemas: 2 }], ["Aplicarlo en ejercicios o preguntas", { simulacros: 2 }]] },
+  { p: "Después de una hora estudiando…", o: [["Estoy frito, necesito parar", { pomodoro: 2 }], ["Bien, si cambio de tarea", { pomodoro: 1, esquemas: 1 }], ["Podría seguir un buen rato", { bloques: 2 }]] },
+];
+const hoyISO = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10) };
+const diasHasta = (f) => Math.round((new Date(f + "T00:00:00") - new Date(hoyISO() + "T00:00:00")) / 86400000);
+const fechaLarga = (f) => new Date(f + "T00:00:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
+async function loadPrep(){
+  const [ex, es] = await Promise.all([
+    sb.from("examenes").select("id, asignatura, fecha").gte("fecha", hoyISO()).order("fecha").limit(10),
+    sb.from("estilo_estudio").select("metodo, hecho_at").maybeSingle(),
+  ]);
+  S.examenes = ex.data || []; S.estilo = es.data || null;
+}
+function planExamen(d, metodo){
+  const m = METODOS[metodo];
+  const fase = d === 0 ? "¡Hoy es tu examen! Repasa la hoja de repaso 15 minutos, desayuna bien y confía en lo que has trabajado. ¡Mucha suerte!"
+    : d === 1 ? "Mañana es el examen: haz solo un simulacro corto, repasa tus fallos con la hoja de repaso y duerme 8 horas."
+    : d <= 7 ? "Última semana: un simulacro con el formato real cada día y repaso de lo que falles. Nada de temas nuevos los dos últimos días."
+    : d <= 21 ? "Faltan unas semanas: termina de estudiar los temas que entran y haz un simulacro cada 2-3 días para ver qué flojea."
+    : "Tienes tiempo: estudia un tema cada pocos días y haz un simulacro corto a la semana para no olvidar lo anterior.";
+  return { fase, sesion: m && d > 0 ? `Con tu método (${m.nombre}): ${m.sesion(d)}.` : "" };
+}
+function htmlPrep(){
+  const ex = S.examenes || [], e = ex[0], est = S.estilo && METODOS[S.estilo.metodo];
+  const cab = `<span class="eyebrow">Prepárate para tu examen</span>`;
+  const testBtn = `<button class="btn ${est ? "btn-ghost" : "btn-hl"} btn-sm" id="pTest">${est ? "Repetir el test de estudio" : "🧠 Test: ¿cuál es tu forma ideal de estudiar?"}</button>`;
+  const metodo = est ? `<div class="metodo-mini"><span>${est.icono}</span><div><b>Tu método: ${esc(est.nombre)}</b><br><button class="linklike small" id="pVerMetodo">Ver cómo aplicarlo</button></div></div>` : "";
+  if (!e) return `<section class="sheet prep">${cab}
+    <h2 style="font-size:24px">¿Cuándo es tu próximo examen?</h2>
+    <form id="pForm" class="prep-form">
+      <label class="field" for="pAsig">Asignatura<input type="text" id="pAsig" maxlength="80" placeholder="Ej.: PRL" value="${esc(S.subject || "")}"></label>
+      <label class="field" for="pFecha">Fecha<input type="date" id="pFecha" min="${hoyISO()}"></label>
+      <button class="btn btn-primary" type="submit">Empezar la cuenta atrás</button>
+    </form>${metodo}<div class="row">${testBtn}</div><div id="pMsg"></div></section>`;
+  const d = diasHasta(e.fecha), plan = planExamen(d, S.estilo?.metodo);
+  return `<section class="sheet prep">${cab}
+    <div class="cuenta"><div class="dias">${d === 0 ? "¡Hoy!" : d}</div><div><b>${d === 0 ? "es tu examen" : d === 1 ? "día para tu examen" : "días para tu examen"}</b><br><span class="muted">${esc(e.asignatura || "Examen")} · ${esc(fechaLarga(e.fecha))}</span></div></div>
+    <p>${esc(plan.fase)}</p>${plan.sesion ? `<p class="small"><b>${esc(plan.sesion)}</b></p>` : ""}
+    ${metodo}
+    ${ex.length > 1 ? `<div class="small muted">Después: ${ex.slice(1, 4).map((x) => `${esc(x.asignatura || "Examen")} en ${diasHasta(x.fecha)} días`).join(" · ")}</div>` : ""}
+    <div class="row">${testBtn}<button class="btn btn-ghost btn-sm" id="pOtro">Añadir otro examen</button><button class="btn btn-ghost btn-sm" id="pBorrar">Quitar este</button></div>
+    <form id="pForm" class="prep-form" hidden>
+      <label class="field" for="pAsig">Asignatura<input type="text" id="pAsig" maxlength="80" placeholder="Ej.: Historia"></label>
+      <label class="field" for="pFecha">Fecha<input type="date" id="pFecha" min="${hoyISO()}"></label>
+      <button class="btn btn-primary" type="submit">Guardar examen</button>
+    </form><div id="pMsg"></div></section>`;
+}
+function montarPrep(el){
+  const q = (s) => $(s, el);
+  if (!q("#pTest")) return;
+  q("#pTest").onclick = () => { S.testResp = []; go("testEstudio") };
+  const vm = q("#pVerMetodo"); if (vm) vm.onclick = () => go("metodo");
+  const otro = q("#pOtro"); if (otro) otro.onclick = () => { q("#pForm").hidden = false; q("#pAsig").focus() };
+  const borrar = q("#pBorrar"); if (borrar) borrar.onclick = async () => {
+    await sb.from("examenes").delete().eq("id", S.examenes[0].id); await loadPrep(); render();
+  };
+  q("#pForm").onsubmit = async (e) => {
+    e.preventDefault();
+    const fecha = q("#pFecha").value, asignatura = q("#pAsig").value.trim();
+    if (!fecha || fecha < hoyISO()) return q("#pMsg").innerHTML = `<div class="error">Elige una fecha de hoy en adelante.</div>`;
+    const { error } = await sb.from("examenes").insert({ asignatura, fecha });
+    if (error) return q("#pMsg").innerHTML = `<div class="error">No se ha podido guardar. Vuelve a intentarlo.</div>`;
+    await loadPrep(); render();
+  };
+}
+function vTestEstudio(){
+  const i = S.testResp.length, t = TEST[i];
+  const el = h(`<section class="sheet">
+    <span class="eyebrow">Test de estudio · ${i + 1} de ${TEST.length}</span>
+    <div class="progress" aria-hidden="true"><i style="width:${i / TEST.length * 100}%"></i></div>
+    <h2 style="font-size:24px">${esc(t.p)}</h2>
+    <div class="opts" id="tOpts"></div>
+    <div class="row">${i ? `<button class="btn btn-ghost" id="tAtras">Atrás</button>` : `<button class="btn btn-ghost" id="tSalir">Salir</button>`}</div>
+  </section>`);
+  t.o.forEach(([txt], j) => {
+    const b = h(`<button class="opt test-opt"><span class="letter">${LET[j]})</span><span>${esc(txt)}</span></button>`);
+    b.onclick = async () => { S.testResp.push(j); if (S.testResp.length < TEST.length) return render(); await terminarTest() };
+    $("#tOpts", el).append(b);
+  });
+  const at = $("#tAtras", el); if (at) at.onclick = () => { S.testResp.pop(); render() };
+  const sa = $("#tSalir", el); if (sa) sa.onclick = () => go("home");
+  return el;
+}
+async function terminarTest(){
+  const puntos = Object.fromEntries(Object.keys(METODOS).map((k) => [k, 0]));
+  S.testResp.forEach((j, i) => { for (const [k, v] of Object.entries(TEST[i].o[j][1])) puntos[k] += v });
+  const metodo = Object.keys(METODOS).reduce((a, b) => puntos[b] > puntos[a] ? b : a);
+  S.estilo = { metodo, hecho_at: new Date().toISOString() }; S.estiloPuntos = puntos;
+  await sb.from("estilo_estudio").upsert({ user_id: S.session.user.id, metodo, puntos, hecho_at: S.estilo.hecho_at });
+  go("metodo");
+}
+function vMetodo(){
+  const m = METODOS[S.estilo?.metodo]; if (!m) { go("home"); return h("<div></div>") }
+  const e = (S.examenes || [])[0], d = e ? diasHasta(e.fecha) : null;
+  const otros = S.estiloPuntos ? Object.entries(S.estiloPuntos).sort((a, b) => b[1] - a[1]).slice(1, 3).filter(([, v]) => v > 0).map(([k]) => METODOS[k].nombre) : [];
+  const el = h(`<section class="sheet">
+    <span class="eyebrow">Tu forma ideal de estudiar</span>
+    <div class="metodo-cab"><span>${m.icono}</span><h2 style="font-size:28px">${esc(m.nombre)}</h2></div>
+    <p>${esc(m.por)}</p>
+    <div><span class="eyebrow">Cómo aplicarlo</span><ul>${m.como.map((c) => `<li>${esc(c)}</li>`).join("")}</ul></div>
+    <div class="notice"><b>Con Entra:</b> ${esc(m.entra)}</div>
+    ${d != null && d > 0 ? `<p><b>Para tu examen de ${esc(e.asignatura || "")} (faltan ${d} días):</b> ${esc(m.sesion(d))}.</p>` : ""}
+    ${otros.length ? `<p class="small muted">También te pueden ir bien: ${esc(otros.join(" y "))}.</p>` : ""}
+    <div class="row"><button class="btn btn-primary" id="mVolver">Volver</button><button class="btn btn-ghost" id="mRepetir">Repetir el test</button></div>
+  </section>`);
+  $("#mVolver", el).onclick = () => go("home");
+  $("#mRepetir", el).onclick = () => { S.testResp = []; go("testEstudio") };
+  return el;
+}
 async function loadHistorial(){
   const { data } = await sb.from("apuntes").select("id, asignatura, temas, actualizado_at").order("actualizado_at", { ascending: false }).limit(8);
   S.historial = data || [];
 }
 function vHome(){
   const el = h(`<div style="display:flex;flex-direction:column;gap:18px">
+    ${htmlPrep()}
     ${S.historial.length ? `<section class="sheet"><span class="eyebrow">Tus apuntes</span><div class="list" id="hist"></div></section>` : ""}
     <section class="sheet">
       <span class="eyebrow">Nuevos apuntes</span>
@@ -330,6 +480,7 @@ function vHome(){
   drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove("over"); add(e.dataTransfer.files) };
   $("#subj", el).oninput = (e) => S.subject = e.target.value;
   $("#paste", el).oninput = (e) => S.pasted = e.target.value;
+  montarPrep(el);
   $("#analyze", el).onclick = analyze;
   return el;
 }
@@ -754,7 +905,7 @@ async function afterLogin(){
     if (!S.cuenta?.terminos) return go("terms");
   }
   const q = new URLSearchParams(location.search);
-  await loadHistorial();
+  await Promise.all([loadHistorial(), loadPrep().catch(() => {})]);
   if (!sigue()) return;
   go("home");
   if (q.get("pago") === "ok") { flash("¡Ya eres Pro! Puede tardar unos segundos en aparecer.", "notice"); esperarPro() }
