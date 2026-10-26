@@ -3,8 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 
 export const LIMITES = {
-  free: { simulacros: 3, paginas: 15, bloques: 20 },
-  pro: { simulacros: 60, paginas: 300, bloques: 400 },
+  free: { simulacros: 3, paginas: 15, bloques: 20, mensajes: 20 },
+  pro: { simulacros: 60, paginas: 300, bloques: 400, mensajes: 200 },
 };
 
 // IA que usa Entra: "gemini" (Google, tiene plan gratuito) o "anthropic" (Claude, de pago).
@@ -64,8 +64,8 @@ export async function autenticar(req) {
   const { data: perfil } = await db.from("perfiles").select("plan, acepto_terminos_at").eq("id", user.id).maybeSingle();
   if (!perfil?.acepto_terminos_at) return { fallo: error("terminos", "Acepta los términos para usar Entra.", 403) };
   const plan = planDe(user, perfil);
-  const { data: uso } = await db.from("uso").select("simulacros, paginas, bloques").eq("user_id", user.id).eq("mes", mesActual()).maybeSingle();
-  return { user, plan, db, uso: uso || { simulacros: 0, paginas: 0, bloques: 0 }, limite: LIMITES[plan] };
+  const { data: uso } = await db.from("uso").select("simulacros, paginas, bloques, mensajes").eq("user_id", user.id).eq("mes", mesActual()).maybeSingle();
+  return { user, plan, db, uso: uso || { simulacros: 0, paginas: 0, bloques: 0, mensajes: 0 }, limite: LIMITES[plan] };
 }
 
 export async function sumarUso(db, userId, { simulacros = 0, paginas = 0, bloques = 0 }) {

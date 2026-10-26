@@ -18,12 +18,22 @@
     <nav class="steps" id="steps" aria-label="Pasos">
       <span data-s="home">Apuntes</span><span data-s="topics">Qué entra</span><span data-s="format">Formato</span><span data-s="exam">Examen</span><span data-s="results">Nota</span>
     </nav>
+    <div class="perfil" id="perfil" hidden>
+      <button class="avatar" id="avatar" aria-haspopup="menu" aria-expanded="false" aria-label="Mi cuenta"></button>
+      <div class="perfil-menu sheet" id="perfilMenu" role="menu" hidden></div>
+    </div>
   </header>
   <div id="account" class="meter" hidden></div>
   <main id="view"><section class="sheet"><div class="loading"><div class="pen" aria-hidden="true"></div><p class="muted">Cargando…</p></div></section></main>
-  <footer class="foot"><a href="/privacidad">Privacidad</a><a href="/terminos">Términos</a><button class="btn btn-ghost btn-sm" id="logout" hidden>Cerrar sesión</button><button class="btn btn-ghost btn-sm" id="delAcc" hidden>Borrar mi cuenta</button></footer>
+  <footer class="foot"><a href="/privacidad">Privacidad</a><a href="/terminos">Términos</a><button class="btn btn-ghost btn-sm" id="delAcc" hidden>Borrar mi cuenta</button></footer>
   <div id="delBox" class="wrap" style="margin-top:10px"></div>
 </div>
+<button class="chat-btn" id="chatBtn" hidden aria-label="Preguntar al tutor">💬 Tutor</button>
+<section class="chat sheet" id="chat" hidden aria-label="Tutor de Entra">
+  <header class="chat-head"><b>Tutor de Entra</b><span class="small muted" id="chatUso"></span><button class="btn btn-ghost btn-sm" id="chatCerrar" aria-label="Cerrar">✕</button></header>
+  <div class="chat-msgs" id="chatMsgs" aria-live="polite"></div>
+  <form class="chat-form" id="chatForm"><input type="text" id="chatInput" maxlength="1000" autocomplete="off" placeholder="Pregunta una duda de tus apuntes…"><button class="btn btn-primary btn-sm" type="submit">Enviar</button></form>
+</section>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="/assets/config.js"></script>

@@ -91,6 +91,7 @@ async function refreshCuenta(){
 }
 function drawAccount(){
   const box = $("#account"); const c = S.cuenta;
+  drawPerfil();
   if (!c || !S.session) { box.hidden = true; return }
   box.hidden = false;
   box.innerHTML = `<span class="pill ${c.plan === "pro" ? "pro" : ""}">${c.plan === "pro" ? "Pro" : "Gratis"}</span>
@@ -691,7 +692,9 @@ function makePdf(){
 /* ============ arranque ============ */
 async function afterLogin(){
   if (S.recuperando) return go("clave");
-  $("#logout").hidden = false; $("#delAcc").hidden = false;
+  const quien = S.session?.user?.id; if (!quien) return;
+  const sigue = () => S.session?.user?.id === quien; // si cierra sesión mientras cargamos, no seguimos
+  $("#delAcc").hidden = false; $("#chatBtn").hidden = !$("#chat").hidden;
   if (!S.cuenta) await refreshCuenta();
   if (S.cuenta && !S.cuenta.terminos) {
     // Si marcó la casilla al pedir el código con este mismo email, no volvemos a preguntar
@@ -700,10 +703,12 @@ async function afterLogin(){
       const { error } = await sb.from("perfiles").update({ acepto_terminos_at: ac.at }).eq("id", S.session.user.id);
       if (!error) await refreshCuenta();
     }
+    if (!sigue()) return;
     if (!S.cuenta?.terminos) return go("terms");
   }
   const q = new URLSearchParams(location.search);
   await loadHistorial();
+  if (!sigue()) return;
   go("home");
   if (q.get("pago") === "ok") { flash("¡Ya eres Pro! Puede tardar unos segundos en aparecer.", "notice"); esperarPro() }
   if (q.get("pro") === "1" && S.cuenta?.plan !== "pro") pagar("suscribir");
@@ -713,7 +718,72 @@ async function afterLogin(){
 async function esperarPro(){
   for (let i = 0; i < 10 && S.cuenta?.plan !== "pro"; i++) { await new Promise(r => setTimeout(r, 2000)); await refreshCuenta() }
 }
-$("#logout").onclick = () => sb.auth.signOut();
+// ============ círculo de perfil ============
+function drawPerfil(){
+  const caja = $("#perfil"), c = S.cuenta, u = S.session?.user;
+  if (!u) { caja.hidden = true; $("#perfilMenu").hidden = true; return }
+  caja.hidden = false;
+  const foto = c?.avatar || u.user_metadata?.avatar_url || u.user_metadata?.picture;
+  const nombre = c?.nombre || u.user_metadata?.full_name || "";
+  const av = $("#avatar");
+  av.innerHTML = foto ? `<img src="${esc(foto)}" alt="" referrerpolicy="no-referrer">` : esc((nombre || u.email || "?").trim()[0].toUpperCase());
+  const img = av.querySelector("img"); if (img) img.onerror = () => { av.textContent = (nombre || u.email || "?").trim()[0].toUpperCase() };
+  const pro = c?.plan === "pro";
+  $("#perfilMenu").innerHTML = `<div class="quien">${nombre ? `<b>${esc(nombre)}</b>` : ""}<span class="small muted">${esc(u.email || "")}</span></div>
+    <div><span class="pill ${pro ? "pro" : ""}">${pro ? "Pro" : "Gratis"}</span></div>
+    ${c ? (pro ? `<button class="btn btn-ghost btn-sm" id="pmPortal">Gestionar suscripción</button>` : `<button class="btn btn-hl btn-sm" id="pmPro">Pasarme a Pro · ${esc(CFG.PRECIO_PRO || "")}</button>`) : ""}
+    <button class="btn btn-ghost btn-sm" id="logout">Cerrar sesión</button>`;
+  const cerrar = () => { $("#perfilMenu").hidden = true; av.setAttribute("aria-expanded", "false") };
+  const pp = $("#pmPro"); if (pp) pp.onclick = () => { cerrar(); pagar("suscribir") };
+  const pt = $("#pmPortal"); if (pt) pt.onclick = () => { cerrar(); pagar("portal") };
+  $("#logout").onclick = () => { cerrar(); sb.auth.signOut() };
+}
+$("#avatar").onclick = (e) => {
+  e.stopPropagation();
+  const m = $("#perfilMenu"); m.hidden = !m.hidden; $("#avatar").setAttribute("aria-expanded", String(!m.hidden));
+};
+document.addEventListener("click", (e) => { if (!$("#perfil").contains(e.target)) { $("#perfilMenu").hidden = true; $("#avatar").setAttribute("aria-expanded", "false") } });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("#perfilMenu").hidden = true });
+
+// ============ tutor (chat con Make) ============
+S.chat = [];
+function pintarChat(){
+  const box = $("#chatMsgs");
+  box.innerHTML = "";
+  box.append(h(`<div class="m tutor">¡Hola! Soy tu tutor. Pregúntame dudas de tus apuntes o cómo usar Entra.</div>`));
+  for (const m of S.chat) box.append(h(`<div class="m ${m.de}">${esc(m.texto)}</div>`));
+  box.scrollTop = box.scrollHeight;
+  const c = S.cuenta; $("#chatUso").textContent = c?.limite?.mensajes ? `${c.uso.mensajes || 0}/${c.limite.mensajes} este mes` : "";
+}
+function contextoChat(){
+  const temas = (S.topics || []).filter((t) => t.entra !== false);
+  if (!temas.length) return "";
+  return (`Asignatura: ${S.subject || ""}\n` + temas.map((t) => `TEMA: ${t.titulo}\n${t.contenido}`).join("\n\n")).slice(0, 4000);
+}
+$("#chatBtn").onclick = () => { $("#chat").hidden = false; $("#chatBtn").hidden = true; pintarChat(); $("#chatInput").focus() };
+$("#chatCerrar").onclick = () => { $("#chat").hidden = true; $("#chatBtn").hidden = !S.session };
+$("#chatForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const inp = $("#chatInput"), mensaje = inp.value.trim();
+  if (!mensaje || S.chatOcupado) return;
+  const historial = S.chat.filter((m) => m.de !== "aviso").slice(-8);
+  S.chat.push({ de: "alumno", texto: mensaje }); inp.value = ""; S.chatOcupado = true; pintarChat();
+  $("#chatMsgs").append(h(`<div class="m tutor" id="escribiendo">Escribiendo…</div>`)); $("#chatMsgs").scrollTop = 1e9;
+  try {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${S.session?.access_token}` },
+      body: JSON.stringify({ mensaje, historial, contexto: contextoChat() }),
+    });
+    const r = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(r.mensaje || "El tutor no está disponible ahora mismo.");
+    S.chat.push({ de: "tutor", texto: r.respuesta });
+    if (S.cuenta?.uso) S.cuenta.uso.mensajes = (S.cuenta.uso.mensajes || 0) + 1;
+  } catch (err) {
+    S.chat.push({ de: "aviso", texto: err.message });
+  }
+  S.chatOcupado = false; pintarChat();
+};
 $("#delAcc").onclick = () => {
   const box = $("#delBox");
   box.innerHTML = `<div class="error" style="display:flex;flex-direction:column;gap:10px">Se borrarán tu cuenta, tus apuntes y tus resultados, y se cancelará Pro si lo tienes. No se puede deshacer.<div class="row"><button class="btn btn-ghost" id="dNo">Cancelar</button><button class="btn btn-primary" id="dYes">Borrar todo</button></div></div>`;
@@ -729,7 +799,7 @@ sb.auth.onAuthStateChange((evt, session) => {
   const was = !!S.session; S.session = session;
   if (session && !was) { refreshCuenta().then(afterLogin) }
   if (S.recuperando && session) return go("clave");
-  if (!session) { S.cuenta = null; drawAccount(); $("#logout").hidden = true; $("#delAcc").hidden = true; go("login") }
+  if (!session) { S.cuenta = null; S.chat = []; drawAccount(); $("#delAcc").hidden = true; $("#chatBtn").hidden = true; $("#chat").hidden = true; go("login") }
 });
 sb.auth.getSession().then(({ data }) => { if (!data.session) go("login") });
 })();

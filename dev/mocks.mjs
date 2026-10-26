@@ -1,6 +1,6 @@
 // Simuladores SOLO para desarrollo local (no se despliegan):
 //  - IA en http://localhost:4010  → respuestas en streaming con formato de Anthropic (/v1/messages)
-//    y de OpenAI/Gemini (/v1/chat/completions)
+//    y de OpenAI/Gemini (/v1/chat/completions), y el webhook del chatbot de Make (/make-chat)
 //  - API de Stripe  en http://localhost:4020  → clientes, Checkout (página o integrado), portal y suscripciones,
 //    webhooks firmados, y un Stripe.js simulado en /stripe.js
 // Uso: node dev/mocks.mjs   (lee STRIPE_WEBHOOK_SECRET, WEBHOOK_URL y WEBHOOK_DELAY_MS del entorno)
@@ -85,6 +85,15 @@ http.createServer(async (req, res) => {
     }
     res.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta: {}, finish_reason: "stop" }] })}\r\n\r\ndata: [DONE]\r\n\r\n`);
     return res.end();
+  }
+  // Webhook del chatbot de Make (MAKE_CHAT_URL=http://localhost:4010/make-chat). MAKE_APAGADO=1 simula el escenario apagado
+  if (req.method === "POST" && req.url === "/make-chat") {
+    const b = JSON.parse(body || "{}");
+    log("make chat", b.plan, (b.mensaje || "").slice(0, 40), `contexto=${(b.contexto || "").length}`);
+    res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
+    if (process.env.MAKE_APAGADO) return res.end("Accepted");
+    const tema = (b.contexto || "").match(/TEMA: (.+)/)?.[1];
+    return res.end(`Respuesta del tutor a "${b.mensaje}"${tema ? ` (según tus apuntes de ${tema})` : ""}. Historial: ${(b.historial || "").split("\n").filter(Boolean).length} líneas.`);
   }
   if (req.method !== "POST" || req.url !== "/v1/messages") { res.writeHead(404); return res.end() }
   if (!req.headers["x-api-key"] || !req.headers["anthropic-version"]) { res.writeHead(401); return res.end('{"type":"error"}') }
