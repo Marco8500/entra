@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 
 export const LIMITES = {
-  free: { simulacros: 3, paginas: 15, bloques: 20, mensajes: 20 },
+  free: { simulacros: 3, paginas: 25, bloques: 20, mensajes: 20 },
   pro: { simulacros: 60, paginas: 300, bloques: 400, mensajes: 200 },
 };
 
