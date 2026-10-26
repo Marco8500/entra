@@ -25,5 +25,5 @@ window.ENTRA_CONFIG = ENTRA_LOCAL
       // Botón "Continuar con Google" (Google activado en Supabase → Authentication → Sign In / Providers)
       GOOGLE: true,
       // ID de cliente de OAuth de Google (público). Con él se usa el botón oficial de Google dentro de la web.
-      GOOGLE_CLIENT_ID: "113025671359-atb9tpbvseti9gu639iegrnh6lf9n30l.apps.googleusercontent.com",
+      GOOGLE_CLIENT_ID: "",
     };
