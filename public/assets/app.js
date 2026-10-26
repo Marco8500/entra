@@ -292,8 +292,8 @@ function vHome(){
       <h2 style="font-size:26px">Sube lo que entra en tu examen</h2>
       <label class="field" for="subj">Asignatura o examen<input type="text" id="subj" placeholder="Ej.: PRL · Unidades 1 y 2" value="${esc(S.subject)}"></label>
       <label class="drop" id="drop" for="file">
-        <input type="file" id="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple>
-        <strong>📷 Haz fotos o sube capturas</strong>
+        <input type="file" id="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.pdf" multiple>
+        <strong>📷 Haz fotos o sube capturas o PDF</strong>
         <span class="muted small">Lee tus anotaciones: "entra", "no entra", "test", "pregunta corta"</span>
       </label>
       <div class="thumbs" id="thumbs"></div>
@@ -312,14 +312,17 @@ function vHome(){
   const drawThumbs = () => {
     const box = $("#thumbs", el); box.innerHTML = "";
     S.files.forEach((f, i) => {
-      const fig = h(`<figure><img alt="Página ${i + 1}"><button aria-label="Quitar página ${i + 1}">×</button></figure>`);
-      fig.querySelector("img").src = URL.createObjectURL(f);
+      const pdf = esPdf(f);
+      const fig = h(pdf
+        ? `<figure class="pdf" title="${esc(f.name)}"><span>PDF</span><small>${esc(f.name)}</small><button aria-label="Quitar ${esc(f.name)}">×</button></figure>`
+        : `<figure><img alt="Página ${i + 1}"><button aria-label="Quitar página ${i + 1}">×</button></figure>`);
+      if (!pdf) fig.querySelector("img").src = URL.createObjectURL(f);
       fig.querySelector("button").onclick = (e) => { e.preventDefault(); S.files.splice(i, 1); drawThumbs() };
       box.append(fig);
     });
   };
   drawThumbs();
-  const add = (list) => { for (const f of list) if (/^image\//.test(f.type)) S.files.push(f); drawThumbs() };
+  const add = (list) => { for (const f of list) if (/^image\//.test(f.type) || esPdf(f)) S.files.push(f); drawThumbs() };
   $("#file", el).onchange = (e) => add(e.target.files);
   const drop = $("#drop", el);
   drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("over") };
@@ -332,6 +335,38 @@ function vHome(){
 }
 
 /* reduce cada foto a ≤1568 px en JPEG para que viaje ligera */
+/* PDF: se lee en el navegador con pdf.js. Si una página trae texto se usa el texto (más rápido y barato);
+   si es una página escaneada (sin texto) se convierte en imagen como una foto. */
+const MAX_PAGINAS_SUBIDA = 60;
+const esPdf = (f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name || "");
+let pdfjs = null;
+const cargarPdfjs = () => pdfjs ??= new Promise((ok, ko) => {
+  const base = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+  const s = document.createElement("script"); s.src = base + "pdf.min.js";
+  s.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = base + "pdf.worker.min.js"; ok(window.pdfjsLib) };
+  s.onerror = () => { pdfjs = null; ko(new ApiError("pdf", "No se ha podido abrir el lector de PDF. Revisa tu conexión.")) };
+  document.head.append(s);
+});
+async function leerPdf(file, fotos, textos, progreso){
+  const lib = await cargarPdfjs();
+  let doc;
+  try { doc = await lib.getDocument({ data: await file.arrayBuffer() }).promise }
+  catch (e) { throw new ApiError("pdf", /password/i.test(e?.name + e?.message) ? `${file.name} tiene contraseña. Quítasela y vuelve a subirlo.` : `No se ha podido abrir ${file.name}.`) }
+  if (doc.numPages + fotos.length + textos.length > MAX_PAGINAS_SUBIDA)
+    throw new ApiError("pdf", `${file.name} tiene ${doc.numPages} páginas. Sube como mucho ${MAX_PAGINAS_SUBIDA} páginas cada vez (solo lo que entra en el examen).`);
+  for (let n = 1; n <= doc.numPages; n++) {
+    progreso(n, doc.numPages);
+    const page = await doc.getPage(n);
+    const txt = (await page.getTextContent()).items.map((it) => it.str + (it.hasEOL ? "\n" : " ")).join("").replace(/[ \t]+/g, " ").trim();
+    if (txt.length >= 80) { textos.push(`[${file.name} · página ${n}]\n${txt}`); continue }
+    // página escaneada → imagen
+    const vp1 = page.getViewport({ scale: 1 }), k = Math.min(2.5, 1568 / Math.max(vp1.width, vp1.height));
+    const vp = page.getViewport({ scale: k }), c = document.createElement("canvas");
+    c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+    await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+    fotos.push({ tipo: "image/jpeg", base64: c.toDataURL("image/jpeg", 0.82).split(",")[1] });
+  }
+}
 async function comprimir(file){
   const bmp = await createImageBitmap(file, { imageOrientation: "from-image" }).catch(() => null);
   if (!bmp) throw new ApiError("foto", `No se ha podido abrir ${file.name}.`);
@@ -342,17 +377,29 @@ async function comprimir(file){
   return { tipo: "image/jpeg", base64: url.split(",")[1] };
 }
 async function analyze(){
-  if (!S.files.length && !S.pasted.trim()) return flash("Sube al menos una foto o pega texto de tus apuntes.", "notice");
+  if (!S.files.length && !S.pasted.trim()) return flash("Sube al menos una foto, un PDF o pega texto de tus apuntes.", "notice");
   ctl = new AbortController();
-  busy("Leyendo tus apuntes…", "Preparando las fotos");
+  busy("Leyendo tus apuntes…", "Preparando los archivos");
   try {
-    const fotos = [];
-    for (let i = 0; i < S.files.length; i++) { setBusySub(`Preparando foto ${i + 1} de ${S.files.length}`); fotos.push(await comprimir(S.files[i])) }
-    const lotes = []; for (let i = 0; i < fotos.length; i += 4) lotes.push(fotos.slice(i, i + 4));
-    if (!lotes.length) lotes.push([]);
-    let hechos = 0, sinLeer = 0, ultimoError = null; setBusySub(`Leyendo ${fotos.length || "el texto"}${fotos.length ? " páginas" : ""}…`);
-    const outs = await enParalelo(lotes.map((lote, i) => () => apiIA("/api/leer", { fotos: lote, texto: i === 0 ? S.pasted : "" })
-      .then(r => { hechos++; setBusySub(`Leído ${hechos} de ${lotes.length} bloques`); return r }, e => { ultimoError = e; soloIA(e); sinLeer += lote.length || 1; return null })), 2);
+    // Fotos → imágenes comprimidas. PDF → texto de cada página (o imagen si la página está escaneada)
+    const fotos = [], textos = [];
+    for (let i = 0; i < S.files.length; i++) {
+      const f = S.files[i];
+      if (esPdf(f)) await leerPdf(f, fotos, textos, (n, t) => setBusySub(`Abriendo ${f.name}: página ${n} de ${t}`));
+      else { setBusySub(`Preparando foto ${i + 1} de ${S.files.length}`); fotos.push(await comprimir(f)) }
+    }
+    if (fotos.length + textos.length > MAX_PAGINAS_SUBIDA) throw new ApiError("pdf", `Son ${fotos.length + textos.length} páginas. Sube como mucho ${MAX_PAGINAS_SUBIDA} cada vez (solo lo que entra en el examen).`);
+    // Lotes: 4 imágenes, u 8 páginas de texto (el texto pegado va con el primer lote de texto)
+    const lotes = [];
+    for (let i = 0; i < fotos.length; i += 4) lotes.push({ fotos: fotos.slice(i, i + 4), texto: "", paginas: 0 });
+    const conPegado = S.pasted.trim() ? [S.pasted.trim()] : [];
+    for (let i = 0; i < textos.length || (i === 0 && conPegado.length); i += 8) {
+      const trozo = textos.slice(i, i + 8);
+      lotes.push({ fotos: [], texto: [...(i === 0 ? conPegado : []), ...trozo].join("\n\n"), paginas: trozo.length });
+    }
+    let hechos = 0, sinLeer = 0, ultimoError = null; setBusySub(`Leyendo ${fotos.length + textos.length || "el texto"}${fotos.length + textos.length ? " páginas" : ""}…`);
+    const outs = await enParalelo(lotes.map((lote) => () => apiIA("/api/leer", lote)
+      .then(r => { hechos++; setBusySub(`Leído ${hechos} de ${lotes.length} bloques`); return r }, e => { ultimoError = e; soloIA(e); sinLeer += lote.fotos.length || lote.paginas || 1; return null })), 2);
     if (!outs.some(Boolean)) throw ultimoError || new ApiError("ia", "La IA ha fallado. Vuelve a intentarlo.");
     const map = new Map(); let asig = "";
     for (const out of outs) {
@@ -370,7 +417,7 @@ async function analyze(){
     await guardarApuntes();
     refreshCuenta();
     go("topics");
-    if (sinLeer) flash(`No he podido leer ${sinLeer} ${sinLeer === 1 ? "foto" : "fotos"} porque la IA iba saturada. Puedes subirlas otra vez dentro de un minuto.`, "notice");
+    if (sinLeer) flash(`No he podido leer ${sinLeer} ${sinLeer === 1 ? "página" : "páginas"} porque la IA iba saturada. Puedes subirlas otra vez dentro de un minuto.`, "notice");
   } catch (e) { fail("home", e) }
 }
 async function guardarApuntes(){

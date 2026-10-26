@@ -180,3 +180,6 @@ textarea{min-height:90px;resize:vertical}
 .chat-form input{flex:1;min-width:0}
 /* logo y círculo de perfil en la misma fila; los pasos debajo */
 .top .logo{order:1}.top .perfil{order:2}.top .steps{order:3;flex-basis:100%}
+.thumbs figure.pdf{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:var(--blue-soft);padding:6px;text-align:center}
+.thumbs figure.pdf span{font-weight:800;color:var(--blue);font-size:18px}
+.thumbs figure.pdf small{font-size:10px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;word-break:break-all}

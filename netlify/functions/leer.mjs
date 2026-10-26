@@ -5,7 +5,7 @@ const MAX_FOTOS = 4;
 const TIPOS = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
 const PROMPT = (pegado) => `Eres el lector de apuntes de Entra, una web de simulacros para estudiantes españoles (FP, bachillerato, universidad, oposiciones).
-Te paso fotos de apuntes${pegado ? " y/o texto pegado" : ""}. Extrae cada apartado o tema con contenido estudiable.
+Te paso fotos de apuntes${pegado ? " y/o texto (pegado o sacado de un PDF)" : ""}. Extrae cada apartado o tema con contenido estudiable.
 Reglas:
 - Ignora portadas e índices, pero úsalos para saber la unidad.
 - "entra": true si el alumno anotó que entra (p. ej. "✱ Entra", "Entra (test)"), false si anotó "No entra", null si no hay anotación.
@@ -15,7 +15,7 @@ Reglas:
 - Si las imágenes no son apuntes, devuelve "temas": [].
 Responde SOLO con JSON:
 {"asignatura":"...","temas":[{"titulo":"...","unidad":"...","entra":true,"contenido":"...","notas":"..."}]}
-${pegado ? "\nTexto pegado por el alumno:\n" + pegado : ""}`;
+${pegado ? "\nTexto de los apuntes del alumno:\n" + pegado : ""}`;
 
 export default async (req) => {
   if (req.method !== "POST") return error("metodo", "Usa POST.", 405);
@@ -31,7 +31,9 @@ export default async (req) => {
     if (!TIPOS.includes(f?.tipo) || typeof f?.base64 !== "string" || f.base64.length > 2_500_000)
       return error("foto", "Alguna foto no es válida o es demasiado grande.");
   }
-  const paginas = Math.max(1, fotos.length);
+  // Páginas que cuentan para el límite: fotos, páginas de PDF que vienen como texto (máx. 8 por lote)
+  // y, para texto pegado largo, una página por cada 5.000 caracteres
+  const paginas = Math.max(1, fotos.length, Math.min(8, parseInt(body.paginas) || 0), Math.ceil(pegado.length / 5000));
   if (a.uso.paginas + paginas > a.limite.paginas)
     return errorLimite(a.plan, "paginas", a.limite.paginas, "páginas");
 
