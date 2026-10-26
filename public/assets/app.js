@@ -154,9 +154,10 @@ const msgAuth = (e) => {
 };
 function vLogin(){
   const nuevo = S.loginModo !== "entrar";
+  const para = { metodo: "descubre tu método de estudio", planificador: "planifica tu examen" }[new URLSearchParams(location.search).get("ir")] || "haz tu primer simulacro";
   const el = h(`<section class="sheet">
     <span class="eyebrow">${nuevo ? "Empieza gratis" : "Entrar"}</span>
-    <h2 style="font-size:28px">${nuevo ? "Crea tu cuenta y haz tu primer simulacro" : "Entra en tu cuenta"}</h2>
+    <h2 style="font-size:28px">${nuevo ? `Crea tu cuenta y ${para}` : "Entra en tu cuenta"}</h2>
     <div class="presets" role="tablist"><button class="chip ${nuevo ? "on" : ""}" id="tNuevo">Crear cuenta</button><button class="chip ${nuevo ? "" : "on"}" id="tEntrar">Ya tengo cuenta</button></div>
     ${CFG.GOOGLE ? `<button class="btn btn-ghost" id="google">Continuar con Google</button><div class="sep">o con tu email</div>` : ""}
     <form id="f" style="display:flex;flex-direction:column;gap:12px" novalidate>
@@ -402,6 +403,17 @@ function vTestEstudio(){
   const at = $("#tAtras", el); if (at) at.onclick = () => { S.testResp.pop(); render() };
   const sa = $("#tSalir", el); if (sa) sa.onclick = () => go("home");
   return el;
+}
+// Botones de la portada: /app?ir=metodo | planificador | simulacro
+function irA(destino){
+  if (destino === "metodo") { S.testResp = []; return go("testEstudio") }
+  const objetivo = destino === "planificador" ? ".prep" : destino === "simulacro" ? "#drop" : null;
+  if (!objetivo) return;
+  requestAnimationFrame(() => {
+    const el = $(objetivo); if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (destino === "planificador") { const f = $("#pForm"); if (f?.hidden) $("#pOtro")?.click(); else $("#pAsig")?.focus() }
+  });
 }
 async function terminarTest(){
   const puntos = Object.fromEntries(Object.keys(METODOS).map((k) => [k, 0]));
@@ -910,7 +922,8 @@ async function afterLogin(){
   go("home");
   if (q.get("pago") === "ok") { flash("¡Ya eres Pro! Puede tardar unos segundos en aparecer.", "notice"); esperarPro() }
   if (q.get("pro") === "1" && S.cuenta?.plan !== "pro") pagar("suscribir");
-  if (q.has("pago") || q.has("pro")) history.replaceState(null, "", "/app");
+  irA(q.get("ir"));
+  if (q.has("pago") || q.has("pro") || q.has("ir")) history.replaceState(null, "", "/app");
 }
 // El webhook de Stripe puede llegar unos segundos después de volver del pago
 async function esperarPro(){

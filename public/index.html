@@ -19,6 +19,18 @@
 .hero .cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
 .hero .cta .btn{flex:0 1 auto}
 .kicker{font-family:var(--f-hand);font-weight:700;color:var(--margin);font-size:26px;transform:rotate(-3deg);display:inline-block;margin-bottom:6px}
+/* herramientas */
+.tools{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media (max-width:900px){.tools{grid-template-columns:1fr}}
+.tool{display:flex;flex-direction:column;gap:12px}
+.tool .btn{margin-top:auto;align-self:flex-start}
+.tool-ico{font-size:34px;line-height:1}
+.tool h3{font-size:21px}
+.tool-demo{display:flex;flex-direction:column;gap:2px;background:var(--paper);border:1px dashed var(--rule);border-radius:12px;padding:10px 12px}
+.cuenta-demo{flex-direction:row;align-items:center;gap:12px}
+.cuenta-demo .dias{font-family:var(--f-display);font-weight:800;font-size:42px;line-height:1;color:var(--blue)}
+.tool-demo.metodos{flex-direction:row;flex-wrap:wrap;gap:6px}
+.tool-demo.metodos span{font-size:13px;padding:3px 9px;border-radius:99px;background:var(--blue-soft);color:var(--ink)}
 /* mini hoja de ejemplo */
 .demo{transform:rotate(1.5deg)}
 .demo .qt{font-size:16px}
@@ -50,7 +62,7 @@ section.block > h2{font-size:clamp(28px,4.5vw,40px);letter-spacing:-.02em}
 <div class="wrap wide">
   <header class="top">
     <a class="logo" href="/">Entra <span class="star">✱</span></a>
-    <nav class="nav"><a class="btn btn-ghost btn-sm" href="#precios">Precios</a><a class="btn btn-primary btn-sm" href="/app">Empezar gratis</a></nav>
+    <nav class="nav"><a class="btn btn-ghost btn-sm" href="#herramientas">Herramientas</a><a class="btn btn-ghost btn-sm" href="#precios">Precios</a><a class="btn btn-primary btn-sm" href="/app">Empezar gratis</a></nav>
   </header>
 
   <main>
@@ -73,6 +85,34 @@ section.block > h2{font-size:clamp(28px,4.5vw,40px);letter-spacing:-.02em}
         </div>
         <p class="fb">Truco: el <b>12 de octubre de 1492</b>, Día de la Hispanidad.</p>
         <div class="score-mini">7,8 <small>/10 · Notable</small></div>
+      </div>
+    </section>
+
+    <section class="block" id="herramientas">
+      <h2>Todo lo que necesitas para tu examen</h2>
+      <p class="muted" style="max-width:62ch">Tres herramientas en una: practica con simulacros, organiza tus exámenes y descubre cómo estudias mejor.</p>
+      <div class="tools">
+        <article class="sheet tool">
+          <span class="tool-ico" aria-hidden="true">📝</span>
+          <h3>Tests con tus apuntes</h3>
+          <p class="muted">Simulacros con el formato de tu profe (test y preguntas cortas), corregidos con nota y con repaso de lo que fallas.</p>
+          <div class="tool-demo"><span class="eyebrow">Ejemplo</span><b>39 test + 5 cortas · 60 min</b><span class="small muted">Nota 7,8 · repasa 3 temas</span></div>
+          <a class="btn btn-primary" href="/app?ir=simulacro">Hacer un test</a>
+        </article>
+        <article class="sheet tool">
+          <span class="tool-ico" aria-hidden="true">📅</span>
+          <h3>Planificador de exámenes</h3>
+          <p class="muted">Pon la fecha de tus exámenes y mira la cuenta atrás. Te decimos qué hacer cada semana: cuándo estudiar, cuántos simulacros y qué repasar el día antes.</p>
+          <div class="tool-demo cuenta-demo"><span class="dias">12</span><span><b>días para tu examen</b><br><span class="small muted">Historia · sábado, 7 de noviembre</span></span></div>
+          <a class="btn btn-primary" href="/app?ir=planificador">Planificar mi examen</a>
+        </article>
+        <article class="sheet tool">
+          <span class="tool-ico" aria-hidden="true">🧠</span>
+          <h3>Tu método de estudio ideal</h3>
+          <p class="muted">Responde 8 preguntas rápidas sobre cómo estudias y te decimos qué método te va mejor, cómo aplicarlo y cuánto estudiar cada día.</p>
+          <div class="tool-demo metodos"><span>🍅 Pomodoro</span><span>🔁 Repetición espaciada</span><span>🗣️ Feynman</span><span>🗺️ Esquemas</span><span>📝 Práctica con exámenes</span><span>🎯 Estudio profundo</span></div>
+          <a class="btn btn-hl" href="/app?ir=metodo">Descubrir mi método</a>
+        </article>
       </div>
     </section>
 
