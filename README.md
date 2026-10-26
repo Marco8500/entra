@@ -55,10 +55,10 @@ Si todos fallan, la app espera y reintenta sola con una cuenta atrás. ⚠️ Lo
 5. **Configuración → Portal de clientes**: actívalo (permite cancelar la suscripción).
 6. Prueba con la tarjeta `4242 4242 4242 4242`. Cuando todo funcione, repite los pasos 2-4 en **modo real**.
 
-## 5. Cloudflare Pages (la web)
+## 5. Cloudflare Workers (la web)
 1. Edita `public/assets/config.js` con tu `SUPABASE_URL`, `SUPABASE_ANON_KEY`, precio y email de contacto.
-2. En [dash.cloudflare.com](https://dash.cloudflare.com): **Workers & Pages → Create → Pages → Connect to Git** → elige el repositorio. Framework preset: *None*. Build command: vacío. Build output directory: `public`. La API sale de `functions/api/*` y la configuración de `wrangler.toml`.
-3. **Settings → Variables and Secrets** (en *Production*), todas como *Secret* salvo `STRIPE_PRICE_ID`:
+2. En [dash.cloudflare.com](https://dash.cloudflare.com): **Workers & Pages → Create → Import a repository** → elige el repositorio. Cloudflare usa `wrangler.toml`: la web sale de `public/` y la API de `worker.js` (`/api/*`). Deploy command: `npx wrangler deploy` (el de por defecto).
+3. En el Worker → **Settings → Variables and Secrets** (todas como *Secret* salvo `STRIPE_PRICE_ID`):
 
 | Variable | Valor |
 |---|---|
@@ -70,8 +70,8 @@ Si todos fallan, la app espera y reintenta sola con una cuenta atrás. ⚠️ Lo
 | `STRIPE_WEBHOOK_SECRET` | `whsec_...` |
 | `MAKE_CHAT_URL` | webhook del chatbot de Make |
 
-4. **Deployments → Retry deployment** para que coja las variables. Cada `git push` a `main` publica solo.
-5. Cuando tengas la dirección (`https://<proyecto>.pages.dev` o tu dominio), ponla en Supabase (**Authentication → URL Configuration**: Site URL y Redirect URLs `.../app`), en el webhook de Stripe (`.../api/stripe-webhook`) y en el portal de clientes de Stripe.
+4. Cada `git push` a `main` publica solo (los secretos se mantienen entre publicaciones).
+5. Cuando tengas la dirección (`https://entra.<tu-subdominio>.workers.dev` o tu dominio), ponla en Supabase (**Authentication → URL Configuration**: Site URL y Redirect URLs `.../app`), en el webhook de Stripe (`.../api/stripe-webhook`) y en el portal de clientes de Stripe.
 
 Las funciones siguen en `netlify/functions` (formato estándar Request → Response), así que también se puede publicar en Netlify con `netlify.toml`.
 
@@ -104,7 +104,7 @@ npm i -g netlify-cli supabase
 cp .env.local.example .env      # variables para local (no se sube a Git)
 supabase start                  # base de datos + login; aplica supabase/migrations
 npm run mocks                   # en otra terminal: Claude simulado (:4010) y Stripe simulado (:4020)
-cp .env .dev.vars && npx wrangler pages dev public --port 8888 --compatibility-flags=nodejs_compat   # en otra terminal: http://localhost:8888/app
+cp .env .dev.vars && npx wrangler dev --port 8888   # en otra terminal: http://localhost:8888/app
 # (o, con Netlify: netlify dev)
 ```
 - Los emails del enlace mágico **no salen a Internet**: ábrelos en Mailpit, http://127.0.0.1:54324.

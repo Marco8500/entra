@@ -1,9 +1,17 @@
-# Cloudflare Pages: web estática en public/ y API en functions/api/*
+# Cloudflare Workers: web estática en public/ y API en worker.js (/api/*)
 name = "entra"
-pages_build_output_dir = "public"
+main = "worker.js"
 compatibility_date = "2026-06-01"
 compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "public"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
 
 # IA de Cloudflare (Workers AI), último recurso de la cadena de IAs
 [ai]
 binding = "AI"
+
+[observability]
+enabled = true
