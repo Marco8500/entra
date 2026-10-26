@@ -149,6 +149,7 @@ const msgAuth = (e) => {
   if (/email not confirmed/i.test(m)) return "Antes de entrar, confirma tu email con el enlace que te hemos enviado.";
   if (/password/i.test(m) && /least|short|weak/i.test(m)) return "La contraseña es demasiado corta o débil. Usa al menos 8 caracteres.";
   if (/rate limit|seconds/i.test(m)) return "Demasiados intentos seguidos. Espera un minuto y vuelve a probar.";
+  if (/not enabled|unacceptable audience|nonce/i.test(m)) return "No se ha podido entrar con Google. Prueba otra vez o crea tu cuenta con email y contraseña.";
   return m || "Algo ha fallado. Vuelve a intentarlo.";
 };
 function vLogin(){
@@ -157,7 +158,7 @@ function vLogin(){
     <span class="eyebrow">${nuevo ? "Empieza gratis" : "Entrar"}</span>
     <h2 style="font-size:28px">${nuevo ? "Crea tu cuenta y haz tu primer simulacro" : "Entra en tu cuenta"}</h2>
     <div class="presets" role="tablist"><button class="chip ${nuevo ? "on" : ""}" id="tNuevo">Crear cuenta</button><button class="chip ${nuevo ? "" : "on"}" id="tEntrar">Ya tengo cuenta</button></div>
-    ${CFG.GOOGLE ? `<button class="btn btn-ghost" id="google">Continuar con Google</button><div class="sep">o con tu email</div>` : ""}
+    ${CFG.GOOGLE ? `<div id="gbox" style="display:flex;justify-content:center;min-height:44px"><button class="btn btn-ghost" id="google" style="width:100%">Continuar con Google</button></div><div class="sep">o con tu email</div>` : ""}
     <form id="f" style="display:flex;flex-direction:column;gap:12px" novalidate>
       <label class="field" for="email">Email<input type="email" id="email" required autocomplete="email" inputmode="email" placeholder="tu@email.com" value="${esc(S.loginEmail || "")}"></label>
       <label class="field" for="clave">Contraseña<input type="password" id="clave" required minlength="8" autocomplete="${nuevo ? "new-password" : "current-password"}" placeholder="${nuevo ? "Mínimo 8 caracteres" : "Tu contraseña"}"></label>
@@ -204,7 +205,33 @@ function vLogin(){
     if (!ok) return msg("El acceso con Google no está disponible ahora mismo. Crea tu cuenta con email y contraseña.");
     sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: location.origin + "/app" + location.search } });
   };
+  if (g && CFG.GOOGLE_CLIENT_ID) requestAnimationFrame(() => botonGoogle($("#gbox", el), msg));
   return el;
+}
+/* Botón oficial de Google: inicia sesión en una ventana sobre la web, sin pasar por la dirección de Supabase.
+   Si no carga, se queda el botón normal (que sí pasa por Supabase). */
+let gsi = null;
+const cargarGoogle = () => gsi ??= new Promise((ok, ko) => {
+  const s = document.createElement("script"); s.src = "https://accounts.google.com/gsi/client";
+  s.onload = () => window.google?.accounts?.id ? ok(window.google) : ko(); s.onerror = () => { gsi = null; ko() };
+  document.head.append(s);
+});
+const sha256 = async (t) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)))].map((x) => x.toString(16).padStart(2, "0")).join("");
+async function botonGoogle(box, msg){
+  try {
+    const g = await cargarGoogle();
+    const nonce = crypto.randomUUID(); // Google recibe el hash; Supabase comprueba el original
+    g.accounts.id.initialize({
+      client_id: CFG.GOOGLE_CLIENT_ID, nonce: await sha256(nonce), ux_mode: "popup", use_fedcm_for_button: true,
+      callback: async ({ credential }) => {
+        const { error } = await sb.auth.signInWithIdToken({ provider: "google", token: credential, nonce });
+        if (error) msg(msgAuth(error));
+      },
+    });
+    if (!box.isConnected) return;
+    box.innerHTML = "";
+    g.accounts.id.renderButton(box, { theme: "outline", size: "large", text: "continue_with", shape: "pill", locale: "es", width: Math.min(box.clientWidth || 320, 400) });
+  } catch {}
 }
 // Al volver del email de "he olvidado mi contraseña"
 function vClave(){

@@ -12,6 +12,7 @@ window.ENTRA_CONFIG = ENTRA_LOCAL
       STRIPE_PUBLISHABLE_KEY: "pk_test_local",
       STRIPE_JS: "http://localhost:4020/stripe.js", // Stripe.js simulado por dev/mocks.mjs
       GOOGLE: false,
+      GOOGLE_CLIENT_ID: "",
     }
   : {
       SUPABASE_URL: "https://pabuoxrtijtldxzmyeqn.supabase.co",
@@ -23,4 +24,6 @@ window.ENTRA_CONFIG = ENTRA_LOCAL
       STRIPE_PUBLISHABLE_KEY: "pk_test_51USvvsHbezUyl81ZHnu4gAGTesEu82ZtstwaEx7BYqsFiWEVihs7W1cEgauK12TCfDcq9GhnTxcl2Jk96DqeXUTK000rWl47Sv",
       // Botón "Continuar con Google" (Google activado en Supabase → Authentication → Sign In / Providers)
       GOOGLE: true,
+      // ID de cliente de OAuth de Google (público). Con él se usa el botón oficial de Google dentro de la web.
+      GOOGLE_CLIENT_ID: "",
     };
