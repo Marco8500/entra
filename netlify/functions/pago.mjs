@@ -45,12 +45,17 @@ export default async (req) => {
     metadata: { user_id: user.id, tipo: pase ? "pase" : "suscripcion" },
     ...(pase ? { payment_intent_data: { metadata: { user_id: user.id, tipo: "pase" } } } : { subscription_data: { metadata: { user_id: user.id } } }),
   };
-  if (embebido) {
-    const s = await stripe.checkout.sessions.create({ ...comun, ui_mode: "embedded", return_url: `${base}/app?pago=ok` });
-    return json({ clientSecret: s.client_secret, publishableKey: clavePublicaStripe() });
+  const extra = embebido ? { ui_mode: "embedded", return_url: `${base}/app?pago=ok` } : { success_url: `${base}/app?pago=ok`, cancel_url: `${base}/app?pago=cancelado` };
+  let s;
+  try { s = await stripe.checkout.sessions.create({ ...comun, ...extra }) }
+  catch (e) {
+    // Cliente guardado de otro modo (prueba ↔ real): se crea uno nuevo y se reintenta
+    if (e?.code !== "resource_missing" || e?.param !== "customer") throw e;
+    comun.customer = (await stripe.customers.create({ email: user.email, metadata: { user_id: user.id } })).id;
+    await db.from("perfiles").update({ stripe_customer_id: comun.customer }).eq("id", user.id);
+    s = await stripe.checkout.sessions.create({ ...comun, ...extra });
   }
-  const s = await stripe.checkout.sessions.create({ ...comun, success_url: `${base}/app?pago=ok`, cancel_url: `${base}/app?pago=cancelado` });
-  return json({ url: s.url });
+  return json(embebido ? { clientSecret: s.client_secret, publishableKey: clavePublicaStripe() } : { url: s.url });
 };
 
 export const config = { path: "/api/pago" };
