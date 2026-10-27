@@ -66,7 +66,8 @@ Si todos fallan, la app espera y reintenta sola con una cuenta atrás. ⚠️ Lo
 | `SUPABASE_SERVICE_ROLE_KEY` | clave service_role |
 | `MISTRAL_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY` | claves de IA (ver punto 3) |
 | `STRIPE_SECRET_KEY` | `sk_...` |
-| `STRIPE_PRICE_ID` | `price_...` |
+| `STRIPE_PRICE_ID` | `price_...` (suscripción mensual) |
+| `STRIPE_PRICE_PASE` | `price_...` (pase de examen, pago único de 7 días) |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_...` |
 | `MAKE_CHAT_URL` | webhook del chatbot de Make |
 

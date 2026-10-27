@@ -144,11 +144,11 @@ http.createServer(async (req, res) => {
     return sJSON(res, c);
   }
   if (req.method === "POST" && url.pathname === "/v1/checkout/sessions") {
-    if (f.mode !== "subscription" || !f["line_items[0][price]"]?.startsWith("price_")) return sJSON(res, { error: { message: "price no válido" } }, 400);
+    if (!["subscription", "payment"].includes(f.mode) || !f["line_items[0][price]"]?.startsWith("price_")) return sJSON(res, { error: { message: "price no válido" } }, 400);
     if (f.customer && !clientes.has(f.customer)) return sJSON(res, { error: { message: "No such customer" } }, 400);
     const embebido = f.ui_mode === "embedded";
     if (embebido ? !f.return_url || f.success_url : !f.success_url) return sJSON(res, { error: { message: "return_url solo con ui_mode=embedded" } }, 400);
-    const s = { id: id("cs_test"), object: "checkout.session", mode: f.mode, ui_mode: embebido ? "embedded" : "hosted", client_reference_id: f.client_reference_id, customer: f.customer || null, customer_email: f.customer_email || clientes.get(f.customer) || null, success_url: f.success_url || f.return_url, cancel_url: f.cancel_url, metadata: { user_id: f["metadata[user_id]"] } };
+    const s = { id: id("cs_test"), object: "checkout.session", mode: f.mode, ui_mode: embebido ? "embedded" : "hosted", client_reference_id: f.client_reference_id, customer: f.customer || null, customer_email: f.customer_email || clientes.get(f.customer) || null, success_url: f.success_url || f.return_url, cancel_url: f.cancel_url, metadata: { user_id: f["metadata[user_id]"], tipo: f["metadata[tipo]"] } };
     if (embebido) s.client_secret = `${s.id}_secret_mock`; else s.url = `http://localhost:4020/pay/${s.id}`;
     sesiones.set(s.id, s);
     return sJSON(res, s);
@@ -182,8 +182,8 @@ http.createServer(async (req, res) => {
     if (req.method === "POST") {
       if (f.card !== "4242424242424242" || !f.name) { res.writeHead(402, { "content-type": "text/html; charset=utf-8" }); return res.end("<p id=err>Tarjeta rechazada</p>") }
       s.customer ||= id("cus"); clientes.set(s.customer, s.customer_email);
-      const sub = { id: id("sub"), object: "subscription", customer: s.customer, status: "active", metadata: s.metadata };
-      subs.set(sub.id, sub); s.subscription = sub.id; s.status = "complete"; s.payment_status = "paid";
+      if (s.mode === "subscription") { const sub = { id: id("sub"), object: "subscription", customer: s.customer, status: "active", metadata: s.metadata }; subs.set(sub.id, sub); s.subscription = sub.id }
+      s.status = "complete"; s.payment_status = "paid";
       const enviar = () => webhook("checkout.session.completed", s);
       if (RETRASO) setTimeout(enviar, RETRASO); else await enviar();
       if (s.ui_mode === "embedded") { res.writeHead(200, { "content-type": "text/html" }); return res.end(`<script>top.location.href = ${JSON.stringify(s.success_url)}</script>`) }

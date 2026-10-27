@@ -96,16 +96,20 @@ function drawAccount(){
   drawPerfil();
   if (!c || !S.session) { box.hidden = true; return }
   box.hidden = false;
-  box.innerHTML = `<span class="pill ${c.plan === "pro" ? "pro" : ""}">${c.plan === "pro" ? "Pro" : "Gratis"}</span>
+  box.innerHTML = `<span class="pill ${c.plan === "pro" ? "pro" : ""}">${etiquetaPlan(c)}</span>
     <span>Simulacros <b>${c.uso.simulacros}/${c.limite.simulacros}</b></span>
     <span>Páginas <b>${c.uso.paginas}/${c.limite.paginas}</b></span>
-    ${c.plan === "pro" ? `<button class="btn btn-ghost btn-sm" id="portal">Gestionar suscripción</button>`
-      : `<button class="btn btn-hl btn-sm" id="goPro">Pasarme a Pro · ${esc(CFG.PRECIO_PRO || "")}</button>`}`;
+    ${c.suscrito ? `<button class="btn btn-ghost btn-sm" id="portal">Gestionar suscripción</button>`
+      : `<button class="btn btn-hl btn-sm" id="goPro">${c.plan === "pro" ? "Hazte Pro mensual" : "Pasarme a Pro"}</button>`}`;
   const gp = $("#goPro"); if (gp) gp.onclick = () => pagar("suscribir");
   const pt = $("#portal"); if (pt) pt.onclick = () => pagar("portal");
 }
+// "Pro" (suscripción), "Pro · hasta 3 nov." (pase de examen) o "Gratis"
+const etiquetaPlan = (c) => c?.suscrito ? "Pro" : c?.proHasta ? `Pro · hasta ${new Date(c.proHasta).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}` : c?.plan === "pro" ? "Pro" : "Gratis";
+// Próximo examen apuntado en el planificador (para los avisos de Pro)
+const proximoExamen = () => (S.examenes || []).map(e => ({ ...e, d: diasHasta(e.fecha) })).find(e => e.d >= 0);
 async function pagar(accion){
-  if (accion === "suscribir" && CFG.STRIPE_PUBLISHABLE_KEY) return go("pago");
+  if ((accion === "suscribir" || accion === "pase") && CFG.STRIPE_PUBLISHABLE_KEY) { S.pagoTipo = accion === "pase" ? "pase" : (S.pagoTipo || null); return go("pago") }
   try { ctl = null; const { url } = await api("/api/pago", { accion }); location.href = url }
   catch (e) { flash(e.message) }
 }
@@ -138,10 +142,30 @@ function fail(where, e){
   if (e?.code === "no_auth") { sb.auth.signOut(); return }
   const isLimit = e?.status === 402;
   requestAnimationFrame(() => {
-    flash(e?.message || "Algo ha fallado.");
-    if (isLimit && S.cuenta?.plan !== "pro") { const m = $("#msg") || $("#view"); m.append(h(`<button class="btn btn-hl" style="margin-top:10px" id="limPro">Pasarme a Pro</button>`)); $("#limPro").onclick = () => pagar("suscribir") }
+    if (isLimit && S.cuenta?.plan !== "pro" && CFG.STRIPE_PUBLISHABLE_KEY) muroPro(e);
+    else flash(e?.message || "Algo ha fallado.");
     refreshCuenta();
   });
+}
+
+// Se ha acabado el plan gratis: explica qué ha pasado y ofrece el pase de examen o Pro mensual
+function muroPro(e){
+  const c = S.cuenta || {}, ex = proximoExamen(), que = /pagina/.test(e?.code || "") ? "páginas" : /mensaje/.test(e?.code || "") ? "mensajes al tutor" : "simulacros";
+  const n = que === "páginas" ? c.limite?.paginas : que === "simulacros" ? c.limite?.simulacros : c.limite?.mensajes;
+  const box = $("#msg") || $("#view");
+  box.innerHTML = `<div class="muro">
+    <b>Has usado tus ${n || ""} ${que} gratis de este mes.</b>
+    ${ex ? `<p>Tu examen de <b>${esc(ex.asignatura)}</b> es ${ex.d === 0 ? "<b>hoy</b>" : ex.d === 1 ? "<b>mañana</b>" : `en <b>${ex.d} días</b>`}. No te quedes sin practicar ahora.</p>` : `<p>Sigue practicando sin esperar al mes que viene.</p>`}
+    <div class="opciones-pro">
+      <button class="opcion ${ex && ex.d <= 10 ? "rec" : ""}" id="mPase"><b>Pase de examen · ${esc(CFG.PRECIO_PASE || "1,99 €")}</b><span>Todo Pro durante 7 días. Pago único, sin suscripción.</span></button>
+      <button class="opcion ${ex && ex.d <= 10 ? "" : "rec"}" id="mPro"><b>Pro · ${esc(CFG.PRECIO_PRO || "")}</b><span>${c.limite ? "60 simulacros y 300 páginas al mes" : "Mucho más cada mes"}. Cancela cuando quieras.</span></button>
+    </div>
+    <button class="btn btn-ghost btn-sm" id="mInvitar">🎁 O invita a un amigo y ganad 1 simulacro cada uno</button>
+  </div>`;
+  $("#mPase").onclick = () => pagar("pase");
+  $("#mPro").onclick = () => { S.pagoTipo = "suscribir"; pagar("suscribir") };
+  $("#mInvitar").onclick = () => go("invitar");
+  box.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 /* ============ login y términos ============ */
@@ -259,19 +283,37 @@ const cargarStripe = () => stripeJs ??= new Promise((ok, ko) => {
   document.head.append(s);
 });
 function vPago(){
+  const c = S.cuenta || {}, ex = proximoExamen();
+  if (c.plan === "pro" && !c.suscrito) S.pagoTipo = "suscribir"; // con pase activo, lo que queda es la suscripción
+  S.pagoTipo ||= ex && ex.d <= 10 ? "pase" : "suscribir";
+  const pase = S.pagoTipo === "pase";
   const el = h(`<section class="sheet">
-    <span class="eyebrow">Entra Pro · ${esc(CFG.PRECIO_PRO || "")}</span>
-    <h2 style="font-size:26px">Pásate a Pro</h2>
-    <p class="muted small">Pago seguro con Stripe. Cancela cuando quieras desde "Gestionar suscripción".</p>
+    <span class="eyebrow">Entra Pro</span>
+    <h2 style="font-size:26px">${ex && ex.d <= 10 ? `Prepara ${esc(ex.asignatura)} sin límites` : "Pásate a Pro"}</h2>
+    <div class="opciones-pro">
+      ${c.plan === "pro" && !c.suscrito ? "" : `<button class="opcion ${pase ? "on" : ""}" data-p="pase"><b>Pase de examen · ${esc(CFG.PRECIO_PASE || "1,99 €")}</b><span>7 días de Pro. Pago único, sin suscripción. Ideal para la semana del examen.</span></button>`}
+      <button class="opcion ${pase ? "" : "on"}" data-p="suscribir"><b>Pro mensual · ${esc(CFG.PRECIO_PRO || "")}</b><span>Para todo el curso. Cancela cuando quieras.</span></button>
+    </div>
+    <table class="comparativa">
+      <thead><tr><th></th><th>Gratis</th><th>Pro</th></tr></thead>
+      <tbody>
+        <tr><td>Simulacros al mes</td><td>3</td><td><b>60</b></td></tr>
+        <tr><td>Páginas de apuntes</td><td>25</td><td><b>300</b></td></tr>
+        <tr><td>Mensajes al tutor</td><td>20</td><td><b>200</b></td></tr>
+        <tr><td>Repaso de fallos, racha y ranking</td><td>✓</td><td>✓</td></tr>
+      </tbody>
+    </table>
+    <p class="muted small">Pago seguro con Stripe.${pase ? " No se renueva solo." : ` Cancela cuando quieras desde "Gestionar suscripción".`}</p>
     <div id="checkout" style="min-height:420px"><div class="loading"><div class="pen" aria-hidden="true"></div><p class="muted">Cargando el pago…</p></div></div>
     <div id="msg"></div>
     <button class="btn btn-ghost" id="back">Volver</button>
   </section>`);
+  el.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { if (S.pagoTipo === b.dataset.p) return; S.pagoTipo = b.dataset.p; if (S.checkout) { S.checkout.destroy(); S.checkout = null } render() });
   $("#back", el).onclick = () => go("home");
   (async () => {
     try {
       ctl = null;
-      const [stripe, { clientSecret }] = await Promise.all([cargarStripe(), api("/api/pago", { accion: "suscribir", embebido: true })]);
+      const [stripe, { clientSecret }] = await Promise.all([cargarStripe(), api("/api/pago", { accion: S.pagoTipo, embebido: true })]);
       if (S.view !== "pago") return;
       S.checkout = await stripe.initEmbeddedCheckout({ fetchClientSecret: async () => clientSecret });
       $("#checkout", el).innerHTML = ""; S.checkout.mount($("#checkout", el));
@@ -830,6 +872,7 @@ async function submit(auto){
   const antes = S.racha?.hoy;
   sb.from("simulacros").insert({ user_id: S.session.user.id, apuntes_id: S.apuntesId, asignatura: S.subject || "", examen: { ...S.exam, respuestas: S.answers }, resultado: S.result, nota })
     .then(() => loadComunidad()).then(() => pintarRacha(!antes), () => {});
+  refreshCuenta().then(avisoUltimos);
   go("results");
 }
 function vResults(){
@@ -849,6 +892,7 @@ function vResults(){
       <div class="row">${weak.length ? `<button class="btn btn-hl" id="rev">Ver repaso de lo que fallé</button>` : ""}<button class="btn btn-ghost" id="again">Otro simulacro</button></div>
     </section>
     <div id="rachaRes"></div>
+    <div id="avisoPro"></div>
     <section class="sheet compartir">
       <div><b>📸 Comparte tu nota</b><p class="small muted">Súbela a tu story o mándala por WhatsApp. Si un amigo entra con tu enlace y hace su primer simulacro, ganáis los dos 1 simulacro y 10 páginas extra.</p></div>
       <div class="row"><button class="btn btn-primary" id="share">Compartir mi nota</button><button class="btn btn-ghost" id="verRanking">🏆 Ranking</button></div>
@@ -881,6 +925,19 @@ function vResults(){
   return el;
 }
 
+// Tras un simulacro en el plan gratis: avisa cuando queda 1 o ninguno
+function avisoUltimos(){
+  const c = S.cuenta, box = $("#avisoPro"); if (!c || !box || c.plan === "pro" || !CFG.STRIPE_PUBLISHABLE_KEY) return;
+  const quedan = c.limite.simulacros - c.uso.simulacros, ex = proximoExamen();
+  if (quedan > 1) return;
+  box.innerHTML = `<div class="muro">
+    <b>${quedan === 1 ? "Te queda 1 simulacro gratis este mes." : "Has usado todos tus simulacros gratis de este mes."}</b>
+    ${ex ? `<p>Tu examen de <b>${esc(ex.asignatura)}</b> es ${ex.d === 0 ? "hoy" : ex.d === 1 ? "mañana" : `en ${ex.d} días`}. Con el pase de examen practicas sin límite toda la semana.</p>` : `<p>Con Pro sigues practicando sin esperar al mes que viene.</p>`}
+    <div class="row"><button class="btn btn-hl" id="aPase">Pase de examen · ${esc(CFG.PRECIO_PASE || "1,99 €")}</button><button class="btn btn-ghost" id="aPro">Pro · ${esc(CFG.PRECIO_PRO || "")}</button></div>
+  </div>`;
+  $("#aPase").onclick = () => pagar("pase");
+  $("#aPro").onclick = () => { S.pagoTipo = "suscribir"; pagar("suscribir") };
+}
 function pintarRacha(nueva){
   const box = $("#rachaRes"), r = S.racha; if (!box || !r?.actual) return;
   box.innerHTML = `<div class="racha viva sheet"><span class="fuego" aria-hidden="true">🔥</span><div><b>${nueva && r.actual > 1 ? `¡Racha de ${dias(r.actual)}!` : nueva ? "¡Racha empezada!" : `Racha de ${dias(r.actual)}`}</b>
@@ -1118,8 +1175,8 @@ function drawPerfil(){
   const img = av.querySelector("img"); if (img) img.onerror = () => { av.textContent = (nombre || u.email || "?").trim()[0].toUpperCase() };
   const pro = c?.plan === "pro";
   $("#perfilMenu").innerHTML = `<div class="quien">${nombre ? `<b>${esc(nombre)}</b>` : ""}<span class="small muted">${esc(u.email || "")}</span></div>
-    <div><span class="pill ${pro ? "pro" : ""}">${pro ? "Pro" : "Gratis"}</span></div>
-    ${c ? (pro ? `<button class="btn btn-ghost btn-sm" id="pmPortal">Gestionar suscripción</button>` : `<button class="btn btn-hl btn-sm" id="pmPro">Pasarme a Pro · ${esc(CFG.PRECIO_PRO || "")}</button>`) : ""}
+    <div><span class="pill ${pro ? "pro" : ""}">${esc(etiquetaPlan(c))}</span></div>
+    ${c ? (c.suscrito ? `<button class="btn btn-ghost btn-sm" id="pmPortal">Gestionar suscripción</button>` : `<button class="btn btn-hl btn-sm" id="pmPro">${pro ? "Hazte Pro mensual" : "Pasarme a Pro"}</button>`) : ""}
     <button class="btn btn-ghost btn-sm" id="pmInvitar">🎁 Invita a un amigo</button>
     <button class="btn btn-ghost btn-sm" id="pmRanking">🏆 Ranking</button>
     <button class="btn btn-ghost btn-sm" id="logout">Cerrar sesión</button>`;

@@ -20,3 +20,4 @@ enabled = true
 [vars]
 SUPABASE_URL = "https://pabuoxrtijtldxzmyeqn.supabase.co"
 STRIPE_PRICE_ID = "price_1UUXcwHbezUyl81ZsZ6ZuVg8"
+STRIPE_PRICE_PASE = "price_1UV48IHbezUyl81Z1OqvJflw"

@@ -1,5 +1,5 @@
 // POST /api/pago · crea la sesión de Stripe Checkout (suscripción Pro) o abre el portal de facturación
-// body: { accion: "suscribir" | "portal", embebido: bool }
+// body: { accion: "suscribir" | "pase" | "portal", embebido: bool } · "pase" = 7 días de Pro con pago único
 // Con embebido=true devuelve { clientSecret } para mostrar el formulario de pago dentro de la web.
 import { env, admin, stripeClient, error, json } from "../lib/entra.mjs";
 
@@ -22,6 +22,7 @@ export default async (req) => {
     return json({ url: s.url });
   }
 
+  if (accion !== "suscribir" && accion !== "pase") return error("accion", "Acción no válida.");
   if (perfil?.plan === "pro") return error("ya_pro", "Ya tienes Entra Pro.");
   if (!user.email) return error("necesita_email", "Tu cuenta no tiene email. Escríbenos.", 403);
 
@@ -31,17 +32,18 @@ export default async (req) => {
     customer = (await stripe.customers.create({ email: user.email, metadata: { user_id: user.id } })).id;
     await db.from("perfiles").update({ stripe_customer_id: customer }).eq("id", user.id);
   }
+  const pase = accion === "pase";
   const comun = {
-    mode: "subscription",
-    line_items: [{ price: env("STRIPE_PRICE_ID"), quantity: 1 }],
+    mode: pase ? "payment" : "subscription",
+    line_items: [{ price: env(pase ? "STRIPE_PRICE_PASE" : "STRIPE_PRICE_ID"), quantity: 1 }],
     client_reference_id: user.id,
     customer,
     customer_update: { name: "auto", address: "auto" },
     billing_address_collection: "required",
     allow_promotion_codes: true,
     locale: "es",
-    metadata: { user_id: user.id },
-    subscription_data: { metadata: { user_id: user.id } },
+    metadata: { user_id: user.id, tipo: pase ? "pase" : "suscripcion" },
+    ...(pase ? { payment_intent_data: { metadata: { user_id: user.id, tipo: "pase" } } } : { subscription_data: { metadata: { user_id: user.id } } }),
   };
   if (embebido) {
     const s = await stripe.checkout.sessions.create({ ...comun, ui_mode: "embedded", return_url: `${base}/app?pago=ok` });

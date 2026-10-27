@@ -16,7 +16,10 @@ export default async (req) => {
   if (evt.type === "checkout.session.completed") {
     const s = evt.data.object;
     const userId = s.client_reference_id || s.metadata?.user_id;
-    if (userId) await db.from("perfiles").update({ plan: "pro", stripe_customer_id: s.customer }).eq("id", userId);
+    if (userId && s.mode === "payment" && s.metadata?.tipo === "pase") {
+      // Pase de examen: 7 días de Pro (activar_pase no lo suma dos veces si Stripe repite el aviso)
+      if (s.payment_status === "paid") await db.rpc("activar_pase", { p_user: userId, p_session: s.id, p_dias: 7 });
+    } else if (userId) await db.from("perfiles").update({ plan: "pro", stripe_customer_id: s.customer }).eq("id", userId);
   }
 
   if (evt.type === "customer.subscription.updated" || evt.type === "customer.subscription.deleted") {

@@ -232,3 +232,18 @@ input[type=date]{background:var(--paper);border:1.5px solid var(--rule);border-r
 .top-portada{display:flex;flex-direction:column;gap:8px;max-width:640px}
 .top-portada .rfila{background:var(--sheet);border:1px solid var(--rule)}
 .top-portada .vacio{padding:18px;border:2px dashed var(--rule);border-radius:14px;text-align:center}
+
+/* pase de examen / Pro */
+.muro{display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:14px;background:var(--blue-soft);border:2px solid var(--blue)}
+.muro p{margin:0}
+.opciones-pro{display:grid;grid-template-columns:1fr;gap:10px}
+@media (min-width:600px){.opciones-pro{grid-template-columns:1fr 1fr}}
+.opcion{display:flex;flex-direction:column;gap:4px;text-align:left;padding:14px;border-radius:14px;border:2px solid var(--rule);background:var(--sheet);color:var(--ink);font:inherit;cursor:pointer;position:relative}
+.opcion span{font-size:14px;color:var(--ink-2)}
+.opcion.on,.opcion.rec{border-color:var(--blue)}
+.opcion.on{background:var(--blue-soft)}
+.opcion.rec::after{content:"Recomendado";position:absolute;top:-10px;right:12px;font-size:11px;font-weight:800;background:var(--hl);color:var(--hl-ink);padding:2px 8px;border-radius:99px}
+.comparativa{width:100%;border-collapse:collapse;font-size:14px}
+.comparativa th,.comparativa td{padding:8px 6px;border-bottom:1px solid var(--rule);text-align:center}
+.comparativa th:first-child,.comparativa td:first-child{text-align:left;color:var(--ink-2)}
+#avisoPro:empty{display:none}

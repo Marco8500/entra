@@ -88,7 +88,9 @@ export const limiteDe = (plan, perfil) => ({
   paginas: LIMITES[plan].paginas + (perfil?.extra_paginas || 0),
 });
 
-export const planDe = (user, perfil) => (perfil?.plan === "pro" ? "pro" : "free");
+/** Pro si tiene suscripción activa o un pase de examen que no ha caducado */
+export const pasoActivo = (perfil) => !!perfil?.pro_hasta && new Date(perfil.pro_hasta) > new Date();
+export const planDe = (user, perfil) => (perfil?.plan === "pro" || pasoActivo(perfil) ? "pro" : "free");
 
 /** Mensaje y código de error cuando se acaba el cupo del mes */
 export function errorLimite(plan, que, n, nombre = que) {
@@ -104,7 +106,7 @@ export async function autenticar(req) {
   const { data, error: e } = await db.auth.getUser(token);
   if (e || !data?.user) return { fallo: error("no_auth", "Tu sesión ha caducado. Vuelve a entrar.", 401) };
   const user = data.user;
-  const { data: perfil } = await db.from("perfiles").select("plan, acepto_terminos_at, extra_simulacros, extra_paginas").eq("id", user.id).maybeSingle();
+  const { data: perfil } = await db.from("perfiles").select("plan, pro_hasta, acepto_terminos_at, extra_simulacros, extra_paginas").eq("id", user.id).maybeSingle();
   if (!perfil?.acepto_terminos_at) return { fallo: error("terminos", "Acepta los términos para usar Entra.", 403) };
   const plan = planDe(user, perfil);
   const { data: uso } = await db.from("uso").select("simulacros, paginas, bloques, mensajes").eq("user_id", user.id).eq("mes", mesActual()).maybeSingle();
