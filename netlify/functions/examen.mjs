@@ -45,7 +45,11 @@ Responde SOLO con JSON:
   return streamIA({
     content: [{ type: "text", text: prompt }],
     maxTokens: 7000,
-    onDone: () => sumarUso(a.db, a.user.id, { simulacros: cuenta ? 1 : 0, bloques: 1 }),
+    onDone: async () => {
+      await sumarUso(a.db, a.user.id, { simulacros: cuenta ? 1 : 0, bloques: 1 });
+      // Primer simulacro de alguien invitado: premio para los dos (la función ignora el resto de casos)
+      if (cuenta) await a.db.rpc("premiar_invitacion", { p_user: a.user.id });
+    },
   });
 };
 

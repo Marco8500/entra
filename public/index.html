@@ -175,6 +175,7 @@ section.block > h2{font-size:clamp(28px,4.5vw,40px);letter-spacing:-.02em}
 
   <footer class="foot"><span>© Entra</span><a href="https://www.tiktok.com/@entraia" target="_blank" rel="noopener">TikTok</a><a href="/privacidad">Privacidad</a><a href="/terminos">Términos</a><a href="/app">Entrar</a></footer>
 </div>
+<script>try{const r=new URLSearchParams(location.search).get("r");if(r&&/^[a-z0-9]{4,12}$/i.test(r))localStorage.setItem("entra.ref",r.toLowerCase())}catch(e){}</script>
 <script src="/assets/config.js"></script>
 <script>try{ const p = window.ENTRA_CONFIG?.PRECIO_PRO; if (p) document.getElementById("precio").firstChild.textContent = p.replace(/\s*\/\s*mes/i, "") + " " }catch(e){}</script>
 </body>

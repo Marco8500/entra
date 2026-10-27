@@ -81,6 +81,13 @@ export const error = (code, mensaje, status = 400) => json({ error: code, mensaj
 
 export const mesActual = () => new Date().toISOString().slice(0, 7);
 
+/** Límites del plan más lo ganado invitando a amigos */
+export const limiteDe = (plan, perfil) => ({
+  ...LIMITES[plan],
+  simulacros: LIMITES[plan].simulacros + (perfil?.extra_simulacros || 0),
+  paginas: LIMITES[plan].paginas + (perfil?.extra_paginas || 0),
+});
+
 export const planDe = (user, perfil) => (perfil?.plan === "pro" ? "pro" : "free");
 
 /** Mensaje y código de error cuando se acaba el cupo del mes */
@@ -97,11 +104,11 @@ export async function autenticar(req) {
   const { data, error: e } = await db.auth.getUser(token);
   if (e || !data?.user) return { fallo: error("no_auth", "Tu sesión ha caducado. Vuelve a entrar.", 401) };
   const user = data.user;
-  const { data: perfil } = await db.from("perfiles").select("plan, acepto_terminos_at").eq("id", user.id).maybeSingle();
+  const { data: perfil } = await db.from("perfiles").select("plan, acepto_terminos_at, extra_simulacros, extra_paginas").eq("id", user.id).maybeSingle();
   if (!perfil?.acepto_terminos_at) return { fallo: error("terminos", "Acepta los términos para usar Entra.", 403) };
   const plan = planDe(user, perfil);
   const { data: uso } = await db.from("uso").select("simulacros, paginas, bloques, mensajes").eq("user_id", user.id).eq("mes", mesActual()).maybeSingle();
-  return { user, plan, db, uso: uso || { simulacros: 0, paginas: 0, bloques: 0, mensajes: 0 }, limite: LIMITES[plan] };
+  return { user, plan, db, uso: uso || { simulacros: 0, paginas: 0, bloques: 0, mensajes: 0 }, limite: limiteDe(plan, perfil) };
 }
 
 export async function sumarUso(db, userId, { simulacros = 0, paginas = 0, bloques = 0 }) {

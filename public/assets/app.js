@@ -118,7 +118,7 @@ function flash(msg, kind = "error"){
 function go(v){ if (S.checkout && v !== "pago") { S.checkout.destroy(); S.checkout = null } S.view = v; render(); window.scrollTo({ top: 0, behavior: "instant" }) }
 function render(){
   document.querySelectorAll("#steps span").forEach(s => s.classList.toggle("on", s.dataset.s === (S.view === "review" ? "results" : S.view)));
-  const V = { testEstudio: vTestEstudio, metodo: vMetodo, login: vLogin, clave: vClave, terms: vTerms, pago: vPago, home: vHome, topics: vTopics, format: vFormat, exam: vExam, results: vResults, review: vReview, busy: vBusy }[S.view];
+  const V = { testEstudio: vTestEstudio, metodo: vMetodo, login: vLogin, clave: vClave, terms: vTerms, pago: vPago, home: vHome, topics: vTopics, format: vFormat, exam: vExam, results: vResults, review: vReview, busy: vBusy, invitar: vInvitar, ranking: vRanking }[S.view];
   if (!V) return;
   $("#view").innerHTML = ""; $("#view").append(V());
 }
@@ -818,6 +818,10 @@ function vResults(){
       <div id="msg"></div>
       <div class="row">${weak.length ? `<button class="btn btn-hl" id="rev">Ver repaso de lo que fallé</button>` : ""}<button class="btn btn-ghost" id="again">Otro simulacro</button></div>
     </section>
+    <section class="sheet compartir">
+      <div><b>📸 Comparte tu nota</b><p class="small muted">Súbela a tu story o mándala por WhatsApp. Si un amigo entra con tu enlace y hace su primer simulacro, ganáis los dos 1 simulacro y 10 páginas extra.</p></div>
+      <div class="row"><button class="btn btn-primary" id="share">Compartir mi nota</button><button class="btn btn-ghost" id="verRanking">🏆 Ranking</button></div>
+    </section>
     <section class="sheet"><span class="eyebrow">Corrección pregunta a pregunta</span><div id="corr"></div></section>
   </div>`);
   const bars = $("#bars", el);
@@ -841,6 +845,8 @@ function vResults(){
   });
   const rv = $("#rev", el); if (rv) rv.onclick = buildReview;
   $("#again", el).onclick = () => go("format");
+  $("#share", el).onclick = () => compartirNota(R.nota);
+  $("#verRanking", el).onclick = () => go("ranking");
   return el;
 }
 
@@ -901,6 +907,135 @@ function makePdf(){
   doc.save(`repaso-${(S.subject || "entra").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").slice(0, 40)}.pdf`);
 }
 
+/* ============ invitaciones, compartir y ranking ============ */
+// El enlace de invitación es /?r=CODIGO (o /app?r=CODIGO): se guarda hasta que la persona entra
+try { const r = new URLSearchParams(location.search).get("r"); if (r && /^[a-z0-9]{4,12}$/i.test(r)) localStorage.setItem("entra.ref", r.toLowerCase()) } catch {}
+const enlaceInvitacion = () => `${location.origin}/?r=${S.cuenta?.codigo || ""}`;
+async function aplicarInvitacion(){
+  let r = null; try { r = localStorage.getItem("entra.ref") } catch {}
+  if (!r) return false;
+  try { localStorage.removeItem("entra.ref") } catch {}
+  if (r === S.cuenta?.codigo) return false;
+  const { data } = await sb.rpc("usar_invitacion", { p_codigo: r });
+  return data === "ok";
+}
+async function compartir(texto, archivo){
+  const url = enlaceInvitacion();
+  try {
+    if (archivo && navigator.canShare?.({ files: [archivo] })) return await navigator.share({ files: [archivo], text: `${texto} ${url}` });
+    if (!archivo && navigator.share) return await navigator.share({ text: texto, url });
+  } catch (e) { if (e?.name === "AbortError") return }
+  if (archivo) { const a = document.createElement("a"); a.href = URL.createObjectURL(archivo); a.download = archivo.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000) }
+  try { await navigator.clipboard.writeText(`${texto} ${url}`); flash(archivo ? "Imagen descargada y enlace copiado. ¡Súbela a tu story!" : "Enlace copiado. Pégalo donde quieras.", "notice") }
+  catch { flash(`Copia tu enlace: ${url}`, "notice") }
+}
+// El ✱ del logo (mismos trazos que /assets/asterisco.svg, en una caja de 100×100)
+function dibujarAsterisco(ctx, x, y, size, color){
+  ctx.save(); ctx.translate(x, y); ctx.scale(size / 100, size / 100);
+  ctx.strokeStyle = color; ctx.lineWidth = 15; ctx.lineCap = "round";
+  for (const d of ["M50 10 C51 38 49 62 51 90", "M15 29 C40 42 62 56 86 70", "M84 27 C60 41 39 57 16 72"]) ctx.stroke(new Path2D(d));
+  ctx.restore();
+}
+async function imagenNota(nota){
+  await document.fonts?.ready;
+  const W = 1080, H = 1920, c = document.createElement("canvas"); c.width = W; c.height = H;
+  const x = c.getContext("2d"), disp = (px, w = 800) => `${w} ${px}px "Bricolage Grotesque", "Arial Black", sans-serif`;
+  const azul = "#2346c8", tinta = "#16213d", rojo = "#e5484d", pasa = nota >= 5;
+  x.fillStyle = "#f7f8fb"; x.fillRect(0, 0, W, H);
+  // hoja de cuaderno con margen rojo
+  x.fillStyle = "#fff"; x.beginPath(); x.roundRect(90, 330, W - 180, 1180, 44); x.fill();
+  x.strokeStyle = "#dfe5f1"; x.lineWidth = 3; for (let ly = 470; ly < 1460; ly += 74) { x.beginPath(); x.moveTo(170, ly); x.lineTo(W - 130, ly); x.stroke() }
+  x.strokeStyle = rojo; x.lineWidth = 4; x.beginPath(); x.moveTo(170, 330); x.lineTo(170, 1510); x.stroke();
+  // logo
+  x.fillStyle = tinta; x.font = disp(120); x.textBaseline = "alphabetic"; x.fillText("Entra", 110, 230);
+  dibujarAsterisco(x, 110 + x.measureText("Entra").width + 10, 110, 80, rojo);
+  // nota
+  x.textAlign = "center"; x.fillStyle = "#4a5677"; x.font = disp(54, 700); x.fillText("He sacado un", W / 2 + 40, 520);
+  // nota y "/10" centrados como un bloque
+  x.font = disp(300); const nw = x.measureText(num(nota)).width; x.font = disp(90, 700); const dw = x.measureText("/10").width;
+  const x0 = W / 2 + 40 - (nw + 16 + dw) / 2; x.textAlign = "left";
+  x.fillStyle = pasa ? azul : rojo; x.font = disp(300); x.fillText(num(nota), x0, 870);
+  x.fillStyle = "#4a5677"; x.font = disp(90, 700); x.fillText("/10", x0 + nw + 16, 870); x.textAlign = "center";
+  // sello
+  const sello = pasa ? (nota >= 9 ? "¡Sobresaliente!" : nota >= 7 ? "Notable" : "Aprobado") : "¡A repasar!";
+  x.save(); x.translate(W / 2 + 40, 1040); x.rotate(-0.06); x.font = disp(70); const sw = x.measureText(sello).width + 80;
+  x.strokeStyle = pasa ? "#1f8a4c" : rojo; x.fillStyle = pasa ? "#1f8a4c" : rojo; x.lineWidth = 8; x.beginPath(); x.roundRect(-sw / 2, -70, sw, 110, 22); x.stroke(); x.fillText(sello, 0, 12); x.restore();
+  x.fillStyle = tinta; x.font = `700 46px "Atkinson Hyperlegible", sans-serif`;
+  const asig = (S.subject || "mi simulacro").slice(0, 34); x.fillText(`en ${asig}`, W / 2 + 40, 1200, W - 340);
+  x.fillStyle = "#4a5677"; x.font = `400 40px "Atkinson Hyperlegible", sans-serif`; x.fillText("Simulacro hecho con mis apuntes", W / 2 + 40, 1290, W - 340);
+  // llamada a la acción
+  x.fillStyle = "#ffe14a"; x.beginPath(); x.roundRect(140, 1600, W - 280, 150, 75); x.fill();
+  x.fillStyle = "#3d3300"; x.font = disp(52); x.fillText("Haz el tuyo gratis 👇", W / 2, 1693);
+  x.fillStyle = tinta; x.font = disp(46, 700); x.fillText(location.host, W / 2, 1840);
+  return new Promise((ok) => c.toBlob((b) => ok(new File([b], "mi-nota-entra.png", { type: "image/png" })), "image/png"));
+}
+async function compartirNota(nota){
+  try { await compartir(`He sacado un ${num(nota)} en mi simulacro de ${S.subject || "examen"} con Entra ✱ Hazte uno gratis con tus apuntes:`, await imagenNota(nota)) }
+  catch (e) { flash("No se ha podido crear la imagen. Vuelve a intentarlo.") }
+}
+function vInvitar(){
+  const c = S.cuenta || {}, url = enlaceInvitacion();
+  const wa = "https://wa.me/?text=" + encodeURIComponent(`Mira esto: subes tus apuntes y te hace un simulacro del examen. Con mi enlace ganamos los dos simulacros extra 👉 ${url}`);
+  const el = h(`<section class="sheet">
+    <span class="eyebrow">Invita a un amigo</span>
+    <h2 style="font-size:26px">🎁 Ganad los dos</h2>
+    <p class="muted">Cuando un amigo se registre con tu enlace y haga su <b>primer simulacro</b>, os lleváis <b>1 simulacro y 10 páginas extra</b> cada uno. Para siempre, hasta 20 amigos.</p>
+    <div class="enlace"><input id="iUrl" readonly value="${esc(url)}" aria-label="Tu enlace de invitación"><button class="btn btn-primary" id="iCopiar">Copiar</button></div>
+    <div class="row"><a class="btn btn-hl" id="iWa" href="${esc(wa)}" target="_blank" rel="noopener">Mandar por WhatsApp</a><button class="btn btn-ghost" id="iShare">Compartir…</button></div>
+    <div class="notice" id="iCuenta">Cargando tus invitaciones…</div>
+    <div id="msg"></div>
+    <button class="btn btn-ghost" id="iVolver">Volver</button>
+  </section>`);
+  $("#iCopiar", el).onclick = async () => { try { await navigator.clipboard.writeText(url); flash("Enlace copiado ✓", "notice") } catch { $("#iUrl").select() } };
+  $("#iShare", el).onclick = () => compartir("Te paso Entra: subes tus apuntes y te hace un simulacro del examen. Con mi enlace ganamos los dos simulacros extra 👉");
+  $("#iVolver", el).onclick = () => go("home");
+  sb.rpc("mis_invitaciones").then(({ data }) => {
+    const d = Array.isArray(data) ? data[0] : data, box = $("#iCuenta"); if (!box) return;
+    const ex = c.extra || {};
+    box.innerHTML = `Amigos apuntados: <b>${d?.apuntados || 0}</b> · ya han hecho su simulacro: <b>${d?.premiados || 0}</b><br>Tienes de regalo: <b>+${ex.simulacros || 0} simulacros</b> y <b>+${ex.paginas || 0} páginas</b> al mes.`;
+  });
+  return el;
+}
+function vRanking(){
+  S.rankTipo ||= "simulacros";
+  const c = S.cuenta || {}, nombre = (c.nombre || "").split(" ")[0];
+  const el = h(`<section class="sheet">
+    <span class="eyebrow">Ranking de ${new Date().toLocaleDateString("es-ES", { month: "long" })}</span>
+    <h2 style="font-size:26px">🏆 Los que más estudian</h2>
+    <div class="tabs" role="tablist"><button role="tab" data-t="simulacros" class="${S.rankTipo === "simulacros" ? "on" : ""}">Más simulacros</button><button role="tab" data-t="notas" class="${S.rankTipo === "notas" ? "on" : ""}">Mejores notas</button></div>
+    <p class="small muted">${S.rankTipo === "notas" ? "Nota media del mes. Cuenta a partir de 3 simulacros." : "Simulacros hechos este mes."} Se reinicia el día 1.</p>
+    <div id="rLista" class="ranking"><p class="muted small">Cargando…</p></div>
+    <div class="unirse">${c.enRanking
+      ? `<p class="small muted">Sales como <b>${esc(c.alias || "")}</b>.</p><button class="btn btn-ghost btn-sm" id="rSalir">No quiero salir en el ranking</button>`
+      : `<b>¿Quieres salir en el ranking?</b><p class="small muted">Solo se ve tu apodo, nunca tu nombre ni tu email.</p>
+         <div class="enlace"><input id="rAlias" maxlength="20" placeholder="Tu apodo" value="${esc(c.alias || nombre)}" aria-label="Apodo"><button class="btn btn-primary" id="rUnirme">Apuntarme</button></div>`}</div>
+    <div id="msg"></div>
+    <button class="btn btn-ghost" id="rVolver">Volver</button>
+  </section>`);
+  el.querySelectorAll("[data-t]").forEach(b => b.onclick = () => { S.rankTipo = b.dataset.t; render() });
+  $("#rVolver", el).onclick = () => go("home");
+  const guardar = async (cambios) => {
+    const { error } = await sb.from("perfiles").update(cambios).eq("id", S.session.user.id);
+    if (error) return flash(error.code === "23505" ? "Ese apodo ya lo usa otra persona. Prueba con otro." : error.message.includes("alias") ? "El apodo tiene que tener entre 2 y 20 letras." : "No se ha podido guardar. Vuelve a intentarlo.");
+    await refreshCuenta(); render();
+  };
+  const un = $("#rUnirme", el); if (un) un.onclick = () => {
+    const alias = $("#rAlias").value.replace(/\s+/g, " ").trim();
+    if (alias.length < 2) return flash("Pon un apodo de al menos 2 letras.");
+    guardar({ alias, en_ranking: true });
+  };
+  const sa = $("#rSalir", el); if (sa) sa.onclick = () => guardar({ en_ranking: false });
+  sb.rpc("ranking", { p_tipo: S.rankTipo }).then(({ data, error }) => {
+    const box = $("#rLista"); if (!box) return;
+    const filas = error ? [] : data || [];
+    if (!filas.length) { box.innerHTML = `<p class="muted small">Aún no hay nadie este mes. ¡Haz un simulacro y sé el primero!</p>`; return }
+    const medalla = (p) => ["🥇", "🥈", "🥉"][p - 1] || p;
+    box.innerHTML = filas.map(f => `<div class="rfila ${f.yo ? "yo" : ""}"><span class="puesto">${medalla(f.puesto)}</span><span class="alias">${esc(f.alias)}${f.yo ? " (tú)" : ""}</span>
+      <span class="dato">${S.rankTipo === "notas" ? `<b>${num(+f.media)}</b> de media` : `<b>${f.simulacros}</b> simulacro${f.simulacros === 1 ? "" : "s"}`}</span></div>`).join("");
+  });
+  return el;
+}
+
 /* ============ arranque ============ */
 async function afterLogin(){
   if (S.recuperando) return go("clave");
@@ -919,13 +1054,15 @@ async function afterLogin(){
     if (!S.cuenta?.terminos) return go("terms");
   }
   const q = new URLSearchParams(location.search);
+  const invitado = await aplicarInvitacion();
   await Promise.all([loadHistorial(), loadPrep().catch(() => {})]);
   if (!sigue()) return;
   go("home");
   if (q.get("pago") === "ok") { flash("¡Ya eres Pro! Puede tardar unos segundos en aparecer.", "notice"); esperarPro() }
   if (q.get("pro") === "1" && S.cuenta?.plan !== "pro") pagar("suscribir");
+  if (invitado) flash("Te ha invitado un amigo 🎁 Cuando hagas tu primer simulacro, ganáis los dos 1 simulacro y 10 páginas extra.", "notice");
   irA(q.get("ir"));
-  if (q.has("pago") || q.has("pro") || q.has("ir")) history.replaceState(null, "", "/app");
+  if (q.has("pago") || q.has("pro") || q.has("ir") || q.has("r")) history.replaceState(null, "", "/app");
 }
 // El webhook de Stripe puede llegar unos segundos después de volver del pago
 async function esperarPro(){
@@ -945,10 +1082,14 @@ function drawPerfil(){
   $("#perfilMenu").innerHTML = `<div class="quien">${nombre ? `<b>${esc(nombre)}</b>` : ""}<span class="small muted">${esc(u.email || "")}</span></div>
     <div><span class="pill ${pro ? "pro" : ""}">${pro ? "Pro" : "Gratis"}</span></div>
     ${c ? (pro ? `<button class="btn btn-ghost btn-sm" id="pmPortal">Gestionar suscripción</button>` : `<button class="btn btn-hl btn-sm" id="pmPro">Pasarme a Pro · ${esc(CFG.PRECIO_PRO || "")}</button>`) : ""}
+    <button class="btn btn-ghost btn-sm" id="pmInvitar">🎁 Invita a un amigo</button>
+    <button class="btn btn-ghost btn-sm" id="pmRanking">🏆 Ranking</button>
     <button class="btn btn-ghost btn-sm" id="logout">Cerrar sesión</button>`;
   const cerrar = () => { $("#perfilMenu").hidden = true; av.setAttribute("aria-expanded", "false") };
   const pp = $("#pmPro"); if (pp) pp.onclick = () => { cerrar(); pagar("suscribir") };
   const pt = $("#pmPortal"); if (pt) pt.onclick = () => { cerrar(); pagar("portal") };
+  $("#pmInvitar").onclick = () => { cerrar(); go("invitar") };
+  $("#pmRanking").onclick = () => { cerrar(); go("ranking") };
   $("#logout").onclick = () => { cerrar(); sb.auth.signOut() };
 }
 $("#avatar").onclick = (e) => {
