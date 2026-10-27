@@ -32,7 +32,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 /* barra superior */
 .top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:16px;flex-wrap:wrap}
 .logo{font-family:var(--f-display);font-weight:800;font-size:26px;letter-spacing:-.02em;display:flex;align-items:baseline;gap:6px;text-decoration:none;color:var(--ink)}
-.logo .star{font-family:var(--f-hand);color:var(--margin);font-size:30px;line-height:0}
+.logo .star{display:inline-block;width:.8em;height:.8em;align-self:flex-start;margin-top:.05em;color:var(--margin);background:currentColor;-webkit-mask:url(/assets/asterisco.svg) center/contain no-repeat;mask:url(/assets/asterisco.svg) center/contain no-repeat}
 .nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .steps{display:flex;gap:6px;flex-wrap:wrap}
 .steps span{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);padding:3px 8px;border-radius:99px;border:1px solid var(--rule)}
