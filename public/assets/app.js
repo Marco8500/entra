@@ -276,12 +276,14 @@ function vTerms(){
 }
 
 /* ============ pago dentro de la web (Stripe Embedded Checkout) ============ */
-let stripeJs = null;
-const cargarStripe = () => stripeJs ??= new Promise((ok, ko) => {
+// El servidor dice qué clave pública usar (prueba o real, según su clave secreta)
+let stripeJs = null; const stripes = {};
+const cargarStripeJs = () => stripeJs ??= new Promise((ok, ko) => {
   const s = document.createElement("script"); s.src = CFG.STRIPE_JS || "https://js.stripe.com/v3/";
-  s.onload = () => ok(window.Stripe(CFG.STRIPE_PUBLISHABLE_KEY)); s.onerror = () => { stripeJs = null; ko(new Error("No se ha podido cargar el pago.")) };
+  s.onload = () => ok(); s.onerror = () => { stripeJs = null; ko(new Error("No se ha podido cargar el pago.")) };
   document.head.append(s);
 });
+const cargarStripe = async (pk = CFG.STRIPE_PUBLISHABLE_KEY) => { await cargarStripeJs(); return stripes[pk] ??= window.Stripe(pk) };
 function vPago(){
   const c = S.cuenta || {}, ex = proximoExamen();
   if (c.plan === "pro" && !c.suscrito) S.pagoTipo = "suscribir"; // con pase activo, lo que queda es la suscripción
@@ -313,7 +315,8 @@ function vPago(){
   (async () => {
     try {
       ctl = null;
-      const [stripe, { clientSecret }] = await Promise.all([cargarStripe(), api("/api/pago", { accion: S.pagoTipo, embebido: true })]);
+      const [, { clientSecret, publishableKey }] = await Promise.all([cargarStripeJs(), api("/api/pago", { accion: S.pagoTipo, embebido: true })]);
+      const stripe = await cargarStripe(publishableKey || CFG.STRIPE_PUBLISHABLE_KEY);
       if (S.view !== "pago") return;
       S.checkout = await stripe.initEmbeddedCheckout({ fetchClientSecret: async () => clientSecret });
       $("#checkout", el).innerHTML = ""; S.checkout.mount($("#checkout", el));

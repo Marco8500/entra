@@ -21,3 +21,8 @@ enabled = true
 SUPABASE_URL = "https://pabuoxrtijtldxzmyeqn.supabase.co"
 STRIPE_PRICE_ID = "price_1UUXcwHbezUyl81ZsZ6ZuVg8"
 STRIPE_PRICE_PASE = "price_1UV48IHbezUyl81Z1OqvJflw"
+STRIPE_PK_TEST = "pk_test_51USvvsHbezUyl81ZHnu4gAGTesEu82ZtstwaEx7BYqsFiWEVihs7W1cEgauK12TCfDcq9GhnTxcl2Jk96DqeXUTK000rWl47Sv"
+# Cobros reales (se usan solos cuando STRIPE_SECRET_KEY es sk_live_...)
+STRIPE_PRICE_ID_LIVE = "price_1UVCpqHv28snjW0ql1jeRNGx"
+STRIPE_PRICE_PASE_LIVE = "price_1UVCpyHv28snjW0q1UWGhzzT"
+STRIPE_PK_LIVE = "pk_live_51USvvXHv28snjW0qL7UnMFPBuKhzFq8tOA9THBVdmERJqlqU2Ta2yVelK1ED36NAPdMfDWABEBywF79w36xEJXnF00nqobGyat"

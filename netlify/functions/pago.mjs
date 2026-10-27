@@ -1,7 +1,7 @@
 // POST /api/pago · crea la sesión de Stripe Checkout (suscripción Pro) o abre el portal de facturación
 // body: { accion: "suscribir" | "pase" | "portal", embebido: bool } · "pase" = 7 días de Pro con pago único
 // Con embebido=true devuelve { clientSecret } para mostrar el formulario de pago dentro de la web.
-import { env, admin, stripeClient, error, json } from "../lib/entra.mjs";
+import { env, admin, clavePublicaStripe, precioStripe, stripeClient, error, json } from "../lib/entra.mjs";
 
 export default async (req) => {
   if (req.method !== "POST") return error("metodo", "Usa POST.", 405);
@@ -35,7 +35,7 @@ export default async (req) => {
   const pase = accion === "pase";
   const comun = {
     mode: pase ? "payment" : "subscription",
-    line_items: [{ price: env(pase ? "STRIPE_PRICE_PASE" : "STRIPE_PRICE_ID"), quantity: 1 }],
+    line_items: [{ price: precioStripe(pase ? "STRIPE_PRICE_PASE" : "STRIPE_PRICE_ID"), quantity: 1 }],
     client_reference_id: user.id,
     customer,
     customer_update: { name: "auto", address: "auto" },
@@ -47,7 +47,7 @@ export default async (req) => {
   };
   if (embebido) {
     const s = await stripe.checkout.sessions.create({ ...comun, ui_mode: "embedded", return_url: `${base}/app?pago=ok` });
-    return json({ clientSecret: s.client_secret });
+    return json({ clientSecret: s.client_secret, publishableKey: clavePublicaStripe() });
   }
   const s = await stripe.checkout.sessions.create({ ...comun, success_url: `${base}/app?pago=ok`, cancel_url: `${base}/app?pago=cancelado` });
   return json({ url: s.url });

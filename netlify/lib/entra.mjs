@@ -74,6 +74,11 @@ export const stripeClient = () => {
   return new Stripe(env("STRIPE_SECRET_KEY"), u ? { host: u.hostname, port: u.port, protocol: u.protocol.replace(":", "") } : undefined);
 };
 
+// Modo de Stripe según la clave secreta: con sk_live se usan los precios *_LIVE y la clave pública real
+export const stripeReal = () => /^(sk|rk)_live_/.test(env("STRIPE_SECRET_KEY") || "");
+export const precioStripe = (nombre) => (stripeReal() && env(nombre + "_LIVE")) || env(nombre);
+export const clavePublicaStripe = () => env(stripeReal() ? "STRIPE_PK_LIVE" : "STRIPE_PK_TEST") || null;
+
 export const json = (data, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json" } });
 
