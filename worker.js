@@ -7,12 +7,13 @@ import cuenta from "./netlify/functions/cuenta.mjs";
 import examen from "./netlify/functions/examen.mjs";
 import leer from "./netlify/functions/leer.mjs";
 import pago from "./netlify/functions/pago.mjs";
+import ranking from "./netlify/functions/ranking.mjs";
 import repaso from "./netlify/functions/repaso.mjs";
 import stripeWebhook from "./netlify/functions/stripe-webhook.mjs";
 
 const API = {
   "/api/borrar": borrar, "/api/chat": chat, "/api/corregir": corregir, "/api/cuenta": cuenta,
-  "/api/examen": examen, "/api/leer": leer, "/api/pago": pago, "/api/repaso": repaso,
+  "/api/examen": examen, "/api/leer": leer, "/api/pago": pago, "/api/ranking": ranking, "/api/repaso": repaso,
   "/api/stripe-webhook": stripeWebhook,
 };
 

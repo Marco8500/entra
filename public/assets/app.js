@@ -336,6 +336,31 @@ async function loadPrep(){
   ]);
   S.examenes = ex.data || []; S.estilo = es.data || null;
 }
+// Racha de días seguidos con simulacro y top 3 del ranking (para el inicio)
+async function loadComunidad(){
+  const [ra, rk] = await Promise.all([sb.rpc("mi_racha"), sb.rpc("ranking", { p_tipo: "simulacros" })]);
+  S.racha = (Array.isArray(ra.data) ? ra.data[0] : ra.data) || { actual: 0, mejor: 0, hoy: false };
+  S.top = rk.data || [];
+}
+const dias = (n) => `${n} día${n === 1 ? "" : "s"}`;
+function htmlComunidad(){
+  const r = S.racha || { actual: 0, mejor: 0, hoy: false }, top = (S.top || []).filter(f => f.puesto <= 3), yo = (S.top || []).find(f => f.yo);
+  const medalla = (p) => ["🥇", "🥈", "🥉"][p - 1] || p;
+  return `<section class="sheet comunidad">
+    <div class="racha ${r.actual ? "viva" : ""}">
+      <span class="fuego" aria-hidden="true">🔥</span>
+      <div><b>${r.actual ? `Racha de ${dias(r.actual)}` : "Empieza tu racha"}</b>
+      <span class="small muted">${r.actual ? (r.hoy ? "¡Hoy ya has estudiado! Vuelve mañana para seguir." : "Haz un simulacro hoy para no perderla.") : "Haz un simulacro cada día y súmala."}${r.mejor > r.actual ? ` · Tu récord: ${dias(r.mejor)}` : ""}</span></div>
+    </div>
+    <div class="mini-rank">
+      <span class="eyebrow">🏆 Ranking de ${new Date().toLocaleDateString("es-ES", { month: "long" })}</span>
+      ${top.length ? top.map(f => `<div class="rfila ${f.yo ? "yo" : ""}"><span class="puesto">${medalla(f.puesto)}</span><span class="alias">${esc(f.alias)}</span><span class="dato"><b>${f.simulacros}</b> sim.</span></div>`).join("")
+        : `<p class="small muted">Aún no hay nadie este mes. ¡Puedes ser el primero!</p>`}
+      ${yo && yo.puesto > 3 ? `<p class="small">Vas el <b>${yo.puesto}.º</b> con ${yo.simulacros} simulacros.</p>` : ""}
+      <button class="btn btn-ghost btn-sm" id="hRanking">${S.cuenta?.enRanking ? "Ver ranking completo" : "Apuntarme al ranking"}</button>
+    </div>
+  </section>`;
+}
 function planExamen(d, metodo){
   const m = METODOS[metodo];
   const fase = d === 0 ? "¡Hoy es tu examen! Repasa la hoja de repaso 15 minutos, desayuna bien y confía en lo que has trabajado. ¡Mucha suerte!"
@@ -409,6 +434,7 @@ function vTestEstudio(){
 // Botones de la portada: /app?ir=metodo | planificador | simulacro
 function irA(destino){
   if (destino === "metodo") { S.testResp = []; return go("testEstudio") }
+  if (destino === "ranking" || destino === "invitar") return go(destino);
   const objetivo = destino === "planificador" ? ".prep" : destino === "simulacro" ? "#drop" : null;
   if (!objetivo) return;
   requestAnimationFrame(() => {
@@ -450,6 +476,7 @@ async function loadHistorial(){
 function vHome(){
   const el = h(`<div style="display:flex;flex-direction:column;gap:18px">
     ${htmlPrep()}
+    ${htmlComunidad()}
     ${S.historial.length ? `<section class="sheet"><span class="eyebrow">Tus apuntes</span><div class="list" id="hist"></div></section>` : ""}
     <section class="sheet">
       <span class="eyebrow">Nuevos apuntes</span>
@@ -466,6 +493,7 @@ function vHome(){
       <button class="btn btn-primary" id="analyze">Leer mis apuntes</button>
     </section>
   </div>`);
+  $("#hRanking", el).onclick = () => go("ranking");
   const hist = $("#hist", el);
   if (hist) S.historial.forEach(a => {
     const n = (a.temas || []).filter(t => t.entra !== false).length;
@@ -799,7 +827,9 @@ async function submit(auto){
   const temas = Object.entries(byTema).map(([k, v]) => ({ tema: k, pct: Math.round(v.got / v.max * 100) })).sort((a, b) => a.pct - b.pct);
   S.result = { testRes, shortRes, nota, temas, auto };
   S.review = null;
-  sb.from("simulacros").insert({ user_id: S.session.user.id, apuntes_id: S.apuntesId, asignatura: S.subject || "", examen: { ...S.exam, respuestas: S.answers }, resultado: S.result, nota }).then(() => {}, () => {});
+  const antes = S.racha?.hoy;
+  sb.from("simulacros").insert({ user_id: S.session.user.id, apuntes_id: S.apuntesId, asignatura: S.subject || "", examen: { ...S.exam, respuestas: S.answers }, resultado: S.result, nota })
+    .then(() => loadComunidad()).then(() => pintarRacha(!antes), () => {});
   go("results");
 }
 function vResults(){
@@ -818,6 +848,7 @@ function vResults(){
       <div id="msg"></div>
       <div class="row">${weak.length ? `<button class="btn btn-hl" id="rev">Ver repaso de lo que fallé</button>` : ""}<button class="btn btn-ghost" id="again">Otro simulacro</button></div>
     </section>
+    <div id="rachaRes"></div>
     <section class="sheet compartir">
       <div><b>📸 Comparte tu nota</b><p class="small muted">Súbela a tu story o mándala por WhatsApp. Si un amigo entra con tu enlace y hace su primer simulacro, ganáis los dos 1 simulacro y 10 páginas extra.</p></div>
       <div class="row"><button class="btn btn-primary" id="share">Compartir mi nota</button><button class="btn btn-ghost" id="verRanking">🏆 Ranking</button></div>
@@ -848,6 +879,12 @@ function vResults(){
   $("#share", el).onclick = () => compartirNota(R.nota);
   $("#verRanking", el).onclick = () => go("ranking");
   return el;
+}
+
+function pintarRacha(nueva){
+  const box = $("#rachaRes"), r = S.racha; if (!box || !r?.actual) return;
+  box.innerHTML = `<div class="racha viva sheet"><span class="fuego" aria-hidden="true">🔥</span><div><b>${nueva && r.actual > 1 ? `¡Racha de ${dias(r.actual)}!` : nueva ? "¡Racha empezada!" : `Racha de ${dias(r.actual)}`}</b>
+    <span class="small muted">${r.actual >= r.mejor && r.actual > 1 ? "¡Es tu récord! " : ""}Vuelve mañana para seguir sumando.</span></div></div>`;
 }
 
 /* ============ 6. repaso ============ */
@@ -963,6 +1000,7 @@ async function imagenNota(nota){
   x.fillStyle = tinta; x.font = `700 46px "Atkinson Hyperlegible", sans-serif`;
   const asig = (S.subject || "mi simulacro").slice(0, 34); x.fillText(`en ${asig}`, W / 2 + 40, 1200, W - 340);
   x.fillStyle = "#4a5677"; x.font = `400 40px "Atkinson Hyperlegible", sans-serif`; x.fillText("Simulacro hecho con mis apuntes", W / 2 + 40, 1290, W - 340);
+  if (S.racha?.actual > 1) { x.fillStyle = "#c2410c"; x.font = disp(52, 800); x.fillText(`🔥 ${S.racha.actual} días seguidos estudiando`, W / 2 + 40, 1410, W - 340) }
   // llamada a la acción
   x.fillStyle = "#ffe14a"; x.beginPath(); x.roundRect(140, 1600, W - 280, 150, 75); x.fill();
   x.fillStyle = "#3d3300"; x.font = disp(52); x.fillText("Haz el tuyo gratis 👇", W / 2, 1693);
@@ -1055,7 +1093,7 @@ async function afterLogin(){
   }
   const q = new URLSearchParams(location.search);
   const invitado = await aplicarInvitacion();
-  await Promise.all([loadHistorial(), loadPrep().catch(() => {})]);
+  await Promise.all([loadHistorial(), loadPrep().catch(() => {}), loadComunidad().catch(() => {})]);
   if (!sigue()) return;
   go("home");
   if (q.get("pago") === "ok") { flash("¡Ya eres Pro! Puede tardar unos segundos en aparecer.", "notice"); esperarPro() }

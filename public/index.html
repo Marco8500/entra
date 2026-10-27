@@ -71,7 +71,7 @@ section.block > h2{font-size:clamp(28px,4.5vw,40px);letter-spacing:-.02em}
 <div class="wrap wide">
   <header class="top">
     <a class="logo" href="/">Entra <span class="star" aria-hidden="true"></span></a>
-    <nav class="nav"><a class="btn btn-ghost btn-sm" href="#herramientas">Herramientas</a><a class="btn btn-ghost btn-sm" href="#precios">Precios</a><a class="btn btn-primary btn-sm" href="/app">Empezar gratis</a></nav>
+    <nav class="nav"><a class="btn btn-ghost btn-sm" href="#herramientas">Herramientas</a><a class="btn btn-ghost btn-sm" href="#ranking">Ranking</a><a class="btn btn-ghost btn-sm" href="#precios">Precios</a><a class="btn btn-primary btn-sm" href="/app">Empezar gratis</a></nav>
   </header>
 
   <main>
@@ -95,6 +95,13 @@ section.block > h2{font-size:clamp(28px,4.5vw,40px);letter-spacing:-.02em}
         <p class="fb">Truco: el <b>12 de octubre de 1492</b>, Día de la Hispanidad.</p>
         <div class="score-mini">7,8 <small>/10 · Notable</small></div>
       </div>
+    </section>
+
+    <section class="block" id="ranking">
+      <h2>🏆 Ranking de <span id="rkMes">este mes</span></h2>
+      <p class="muted" style="max-width:62ch">Los estudiantes que más simulacros han hecho este mes. Haz un simulacro cada día, mantén tu racha 🔥 y sube puestos. Se reinicia el día 1.</p>
+      <div class="top-portada" id="rkTop"><div class="vacio muted">Cargando el ranking…</div></div>
+      <div class="row"><a class="btn btn-primary" href="/app?ir=ranking">Apuntarme al ranking</a><a class="btn btn-ghost" href="/app?ir=simulacro">Hacer un simulacro</a></div>
     </section>
 
     <section class="block" id="herramientas">
@@ -177,6 +184,17 @@ section.block > h2{font-size:clamp(28px,4.5vw,40px);letter-spacing:-.02em}
 </div>
 <script>try{const r=new URLSearchParams(location.search).get("r");if(r&&/^[a-z0-9]{4,12}$/i.test(r))localStorage.setItem("entra.ref",r.toLowerCase())}catch(e){}</script>
 <script src="/assets/config.js"></script>
+<script>
+(async () => {
+  const box = document.getElementById("rkTop"), esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  try {
+    const { mes, top } = await (await fetch("/api/ranking")).json();
+    if (mes) document.getElementById("rkMes").textContent = mes;
+    if (!top?.length) { box.innerHTML = `<div class="vacio"><b>El ranking acaba de empezar.</b><br><span class="muted">Haz tu primer simulacro y sal el primero 🥇</span></div>`; return }
+    box.innerHTML = top.map((f) => `<div class="rfila"><span class="puesto">${["🥇", "🥈", "🥉"][f.puesto - 1] || f.puesto}</span><span class="alias">${esc(f.alias)}</span><span class="dato"><b>${f.simulacros}</b> simulacro${f.simulacros === 1 ? "" : "s"}${f.racha > 1 ? ` · 🔥${f.racha}` : ""}</span></div>`).join("");
+  } catch { box.innerHTML = `<div class="vacio"><b>Ranking de estudiantes</b><br><span class="muted">Haz simulacros para subir puestos 🥇</span></div>` }
+})();
+</script>
 <script>try{ const p = window.ENTRA_CONFIG?.PRECIO_PRO; if (p) document.getElementById("precio").firstChild.textContent = p.replace(/\s*\/\s*mes/i, "") + " " }catch(e){}</script>
 </body>
 </html>
