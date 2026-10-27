@@ -36,6 +36,8 @@ export default async (req) => {
   const comun = {
     mode: pase ? "payment" : "subscription",
     line_items: [{ price: precioStripe(pase ? "STRIPE_PRICE_PASE" : "STRIPE_PRICE_ID"), quantity: 1 }],
+    // Solo tarjeta (incluye Apple Pay y Google Pay): sin Link, Klarna ni otros que piden pasos extra
+    payment_method_types: ["card"],
     client_reference_id: user.id,
     customer,
     customer_update: { name: "auto", address: "auto" },
