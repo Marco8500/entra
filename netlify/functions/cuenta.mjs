@@ -7,8 +7,11 @@ export default async (req) => {
   const { data } = await db.auth.getUser(token);
   const user = data?.user;
   if (!user) return error("no_auth", "Inicia sesión para continuar.", 401);
-  const { data: perfil } = await db.from("perfiles").select("plan, pro_hasta, acepto_terminos_at, extra_simulacros, extra_paginas, codigo, alias, en_ranking").eq("id", user.id).maybeSingle();
-  const { data: uso } = await db.from("uso").select("simulacros, paginas, mensajes").eq("user_id", user.id).eq("mes", mesActual()).maybeSingle();
+  const [{ data: perfil, error: e1 }, { data: uso, error: e2 }] = await Promise.all([
+    db.from("perfiles").select("plan, pro_hasta, acepto_terminos_at, extra_simulacros, extra_paginas, codigo, alias, en_ranking").eq("id", user.id).maybeSingle(),
+    db.from("uso").select("simulacros, paginas, mensajes, correcciones").eq("user_id", user.id).eq("mes", mesActual()).maybeSingle(),
+  ]);
+  if (e1 || e2) throw new Error("cuenta: " + (e1 || e2).message);
   const plan = planDe(user, perfil);
   return json({
     email: user.email,
@@ -16,7 +19,7 @@ export default async (req) => {
     suscrito: perfil?.plan === "pro",
     proHasta: pasoActivo(perfil) ? perfil.pro_hasta : null,
     terminos: !!perfil?.acepto_terminos_at,
-    uso: uso || { simulacros: 0, paginas: 0, mensajes: 0 },
+    uso: { simulacros: 0, paginas: 0, mensajes: 0, correcciones: 0, ...uso },
     avatar: user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
     nombre: user.user_metadata?.full_name || user.user_metadata?.name || null,
     limite: limiteDe(plan, perfil),

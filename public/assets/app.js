@@ -25,33 +25,51 @@ try{ Object.assign(S.fmt, JSON.parse(localStorage.getItem("entra.fmt") || "{}"))
 class ApiError extends Error { constructor(code, mensaje, status){ super(mensaje); this.code = code; this.status = status } }
 let ctl = null;
 
+// El servidor manda un espacio cada 8 s mientras la IA piensa: si en 90 s no llega nada, la conexión se ha quedado colgada
+const SIN_RESPUESTA_MS = 90_000;
 async function api(path, body, onText){
   const token = S.session?.access_token;
-  const r = await fetch(path, {
-    method: body ? "POST" : "GET",
-    headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-    body: body ? JSON.stringify(body) : undefined,
-    signal: ctl?.signal,
-  });
-  const ct = r.headers.get("content-type") || "";
-  // 5xx: el servidor o la IA han fallado o tardado demasiado → se reintenta como "saturada" (no es un error de la cuenta)
-  if (r.status >= 500) throw new ApiError("ocupado", "La IA está saturada ahora mismo. Prueba en un minuto.");
-  if (!r.ok) {
-    let d = {}; try { d = await r.json() } catch {}
-    throw new ApiError(d.error || "http", d.mensaje || "Algo ha fallado. Vuelve a intentarlo.", r.status);
+  const propio = new AbortController(); let colgado = false;
+  const cancelar = () => propio.abort();
+  if (ctl?.signal.aborted) propio.abort(); else ctl?.signal.addEventListener("abort", cancelar, { once: true });
+  let reloj = null;
+  const vigilar = () => { clearTimeout(reloj); reloj = setTimeout(() => { colgado = true; propio.abort() }, SIN_RESPUESTA_MS) };
+  try {
+    vigilar();
+    const r = await fetch(path, {
+      method: body ? "POST" : "GET",
+      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: propio.signal,
+    });
+    const ct = r.headers.get("content-type") || "";
+    if (!r.ok) {
+      let d = null; if (ct.includes("application/json")) { try { d = await r.json() } catch {} }
+      // 5xx sin explicación (Cloudflare caído o tiempo agotado): se trata como saturación y apiIA reintenta
+      if (r.status >= 500 && !d?.error) throw new ApiError("ocupado", "El servidor no responde ahora mismo. Prueba en un minuto.", r.status);
+      throw new ApiError(d?.error || "http", d?.mensaje || "Algo ha fallado. Vuelve a intentarlo.", r.status);
+    }
+    if (ct.includes("application/json")) return await r.json();
+    // streaming de texto
+    const reader = r.body.getReader(); const dec = new TextDecoder(); let text = "";
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      vigilar();
+      text += dec.decode(value, { stream: true });
+      onText?.(text);
+    }
+    const m = text.match(/\[\[ERROR:(\w+)\]\]/);
+    if (m) throw new ApiError(m[1], { ocupado: "La IA está saturada ahora mismo. Prueba en un minuto.", cuota: "Hoy se ha agotado la IA gratuita. Vuelve a probar mañana." }[m[1]] || "La IA ha fallado. Vuelve a intentarlo.");
+    return text;
+  } catch (e) {
+    if (colgado) throw new ApiError("ocupado", "La conexión se ha quedado colgada. Lo intentamos otra vez.");
+    if (e?.name === "TypeError") throw new ApiError("red", "Sin conexión con Entra. Revisa tu internet y vuelve a intentarlo.");
+    throw e;
+  } finally {
+    clearTimeout(reloj);
+    ctl?.signal.removeEventListener("abort", cancelar);
   }
-  if (ct.includes("application/json")) return r.json();
-  // streaming de texto
-  const reader = r.body.getReader(); const dec = new TextDecoder(); let text = "";
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    text += dec.decode(value, { stream: true });
-    onText?.(text);
-  }
-  const m = text.match(/\[\[ERROR:(\w+)\]\]/);
-  if (m) throw new ApiError(m[1], { ocupado: "La IA está saturada ahora mismo. Prueba en un minuto.", cuota: "Hoy se ha agotado la IA gratuita. Vuelve a probar mañana." }[m[1]] || "La IA ha fallado. Vuelve a intentarlo.");
-  return text;
 }
 function parseJSON(text){
   const s = String(text).trim();
@@ -72,9 +90,10 @@ async function apiIA(path, body, onText){
   for (let intento = 0; ; intento++) {
     try { return await apiJSON(path, body, onText) }
     catch (e) {
-      const saturada = e.code === "ocupado" && intento < 3, fallo = (e.code === "ia" || e.code === "json") && intento < 1;
+      // El servidor ya prueba varias IAs antes de rendirse: aquí solo esperamos un poco más (8, 15 y 30 s)
+      const saturada = e.code === "ocupado" && intento < 3, fallo = ["ia", "json", "servidor", "red"].includes(e.code) && intento < 1;
       if (!saturada && !fallo) throw e;
-      for (let s = saturada ? 20 * (intento + 1) : 3; s > 0; s--) { setBusySub(`La IA va saturada. Reintento en ${s} s…`); await dormir(1000) }
+      for (let s = saturada ? [8, 15, 30][intento] : 3; s > 0; s--) { setBusySub(saturada ? `La IA va saturada. Reintento en ${s} s…` : `Ha fallado. Reintento en ${s} s…`); await dormir(1000) }
     }
   }
 }
@@ -514,9 +533,16 @@ function vMetodo(){
   $("#mRepetir", el).onclick = () => { S.testResp = []; go("testEstudio") };
   return el;
 }
+// Lista de apuntes sin el texto de los temas (antes se bajaban enteros en cada visita al inicio); se cargan al abrir
 async function loadHistorial(){
-  const { data } = await sb.from("apuntes").select("id, asignatura, temas, actualizado_at").order("actualizado_at", { ascending: false }).limit(8);
+  const { data, error } = await sb.rpc("mis_apuntes", { p_limite: 8 });
+  if (error) console.error("mis_apuntes", error.message);
   S.historial = data || [];
+}
+async function abrirApuntes(a){
+  const { data, error } = await sb.from("apuntes").select("temas").eq("id", a.id).maybeSingle();
+  if (error || !data) return flash("No se han podido abrir estos apuntes. Revisa tu conexión y vuelve a intentarlo.");
+  S.apuntesId = a.id; S.subject = a.asignatura; S.topics = (data.temas || []).map(t => ({ ...t, id: t.id || uid() })); go("topics");
 }
 function vHome(){
   const el = h(`<div style="display:flex;flex-direction:column;gap:18px">
@@ -542,19 +568,21 @@ function vHome(){
   $("#hRanking", el).onclick = () => go("ranking");
   const hist = $("#hist", el);
   if (hist) S.historial.forEach(a => {
-    const n = (a.temas || []).filter(t => t.entra !== false).length;
+    const n = a.temas_entran ?? 0;
     const b = h(`<button class="item"><span><b>${esc(a.asignatura || "Sin título")}</b><br><span class="small muted">${n} temas que entran · ${new Date(a.actualizado_at).toLocaleDateString("es-ES")}</span></span><span class="btn btn-ghost btn-sm">Abrir</span></button>`);
-    b.onclick = () => { S.apuntesId = a.id; S.subject = a.asignatura; S.topics = (a.temas || []).map(t => ({ ...t, id: t.id || uid() })); go("topics") };
+    b.onclick = () => abrirApuntes(a);
     hist.append(b);
   });
+  let urls = [];
   const drawThumbs = () => {
     const box = $("#thumbs", el); box.innerHTML = "";
+    urls.forEach(u => URL.revokeObjectURL(u)); urls = [];
     S.files.forEach((f, i) => {
       const pdf = esPdf(f);
       const fig = h(pdf
         ? `<figure class="pdf" title="${esc(f.name)}"><span>PDF</span><small>${esc(f.name)}</small><button aria-label="Quitar ${esc(f.name)}">×</button></figure>`
         : `<figure><img alt="Página ${i + 1}"><button aria-label="Quitar página ${i + 1}">×</button></figure>`);
-      if (!pdf) fig.querySelector("img").src = URL.createObjectURL(f);
+      if (!pdf) { const u = URL.createObjectURL(f); urls.push(u); fig.querySelector("img").src = u }
       fig.querySelector("button").onclick = (e) => { e.preventDefault(); S.files.splice(i, 1); drawThumbs() };
       box.append(fig);
     });
@@ -589,7 +617,8 @@ const cargarPdfjs = () => pdfjs ??= new Promise((ok, ko) => {
 async function leerPdf(file, fotos, textos, progreso){
   const lib = await cargarPdfjs();
   let doc;
-  try { doc = await lib.getDocument({ data: await file.arrayBuffer() }).promise }
+  // isEvalSupported: false → cierra el fallo CVE-2024-4367 de pdf.js 3.x (un PDF malicioso podía ejecutar código)
+  try { doc = await lib.getDocument({ data: await file.arrayBuffer(), isEvalSupported: false }).promise }
   catch (e) { throw new ApiError("pdf", /password/i.test(e?.name + e?.message) ? `${file.name} tiene contraseña. Quítasela y vuelve a subirlo.` : `No se ha podido abrir ${file.name}.`) }
   if (doc.numPages + fotos.length + textos.length > MAX_PAGINAS_SUBIDA)
     throw new ApiError("pdf", `${file.name} tiene ${doc.numPages} páginas. Sube como mucho ${MAX_PAGINAS_SUBIDA} páginas cada vez (solo lo que entra en el examen).`);
@@ -598,7 +627,8 @@ async function leerPdf(file, fotos, textos, progreso){
     const page = await doc.getPage(n);
     const txt = (await page.getTextContent()).items.map((it) => it.str + (it.hasEOL ? "\n" : " ")).join("").replace(/[ \t]+/g, " ").trim();
     if (txt.length >= 80) { textos.push(`[${file.name} · página ${n}]\n${txt}`); continue }
-    // página escaneada → imagen
+    // página escaneada → imagen (se para antes de convertir de más)
+    if (fotos.length >= MAX_IMAGENES_SUBIDA) throw new ApiError("pdf", `${file.name} tiene muchas páginas escaneadas (sin texto). Se leen más despacio: sube como mucho ${MAX_IMAGENES_SUBIDA} fotos o páginas escaneadas cada vez (solo lo que entra en el examen).`);
     const vp1 = page.getViewport({ scale: 1 }), k = Math.min(2.5, 1400 / Math.max(vp1.width, vp1.height));
     const vp = page.getViewport({ scale: k }), c = document.createElement("canvas");
     c.width = Math.round(vp.width); c.height = Math.round(vp.height);
@@ -629,16 +659,12 @@ async function analyze(){
     }
     if (fotos.length > MAX_IMAGENES_SUBIDA) throw new ApiError("pdf", `Hay ${fotos.length} fotos o páginas escaneadas. Se leen más despacio: sube como mucho ${MAX_IMAGENES_SUBIDA} cada vez (solo lo que entra en el examen). Los PDF con texto pueden ser más largos.`);
     if (fotos.length + textos.length > MAX_PAGINAS_SUBIDA) throw new ApiError("pdf", `Son ${fotos.length + textos.length} páginas. Sube como mucho ${MAX_PAGINAS_SUBIDA} cada vez (solo lo que entra en el examen).`);
-    // Lotes: 2 imágenes, u 8 páginas de texto (el texto pegado va con el primer lote de texto)
+    // Lotes: 2 imágenes, o trozos de texto de hasta ~12.000 caracteres
     const lotes = [];
     for (let i = 0; i < fotos.length; i += 2) lotes.push({ fotos: fotos.slice(i, i + 2), texto: "", paginas: 0 });
     // Texto: modo índice, con las líneas numeradas; la IA solo dice dónde empieza cada tema
-    const conPegado = S.pasted.trim() ? [S.pasted.trim()] : [];
-    for (let i = 0; i < textos.length || (i === 0 && conPegado.length); i += 8) {
-      const trozo = textos.slice(i, i + 8);
-      const lineas = [...(i === 0 ? conPegado : []), ...trozo].join("\n\n").split("\n").map(l => l.trim()).filter(Boolean);
-      lotes.push({ fotos: [], texto: lineas.map((l, n) => `${n + 1}| ${l}`).join("\n"), paginas: trozo.length, indice: true, lineas });
-    }
+    for (const { lineas, paginas } of lotesDeTexto(S.pasted, textos))
+      lotes.push({ fotos: [], texto: lineas.map((l, n) => `${n + 1}| ${l}`).join("\n"), paginas, indice: true, lineas });
     let hechos = 0, sinLeer = 0, ultimoError = null; setBusySub(`Leyendo ${fotos.length + textos.length || "el texto"}${fotos.length + textos.length ? " páginas" : ""}…`);
     const outs = await enParalelo(lotes.map(({ lineas, ...lote }) => () => apiIA("/api/leer", lote)
       .then(r => { hechos++; setBusySub(`Leído ${hechos} de ${lotes.length} bloques`); return lineas ? temasDeIndice(r, lineas) : r },
@@ -657,11 +683,31 @@ async function analyze(){
     if (!S.topics.length) throw new ApiError("vacio", "No he encontrado temas estudiables. Prueba con fotos más nítidas.");
     if (!S.subject) S.subject = asig;
     S.apuntesId = null; S.files = []; S.pasted = "";
-    await guardarApuntes();
+    const guardado = await guardarApuntes().then(() => true, (e) => (console.error("apuntes", e?.message || e), false));
     refreshCuenta();
     go("topics");
+    if (!guardado) avisoSinGuardar();
     if (sinLeer) flash(`No he podido leer ${sinLeer} ${sinLeer === 1 ? "página" : "páginas"} porque la IA iba saturada. Puedes subirlas otra vez dentro de un minuto.`, "notice");
   } catch (e) { fail("home", e) }
+}
+/* Reparte el texto (pegado + páginas de PDF) en lotes de hasta MAX_CHARS_LOTE caracteres, sin partir líneas.
+   Antes iban 8 páginas por lote y el texto pegado muy largo se cortaba en el servidor (60.000 caracteres). */
+const MAX_CHARS_LOTE = 12000;
+function lotesDeTexto(pegado, textos){
+  const piezas = [];
+  const pega = String(pegado || "").trim();
+  if (pega) piezas.push({ lineas: pega.split("\n").map(l => l.trim()).filter(Boolean), paginas: 0 });
+  for (const t of textos) piezas.push({ lineas: t.split("\n").map(l => l.trim()).filter(Boolean), paginas: 1 });
+  const lotes = []; let actual = null;
+  for (const p of piezas) {
+    for (let i = 0; i < p.lineas.length; i++) {
+      const l = p.lineas[i].slice(0, MAX_CHARS_LOTE);
+      if (!actual || actual.chars + l.length + 1 > MAX_CHARS_LOTE) lotes.push(actual = { lineas: [], paginas: 0, chars: 0 });
+      actual.lineas.push(l); actual.chars += l.length + 1;
+      if (i === 0) actual.paginas += p.paginas;
+    }
+  }
+  return lotes.map(({ lineas, paginas }) => ({ lineas, paginas }));
 }
 // Convierte la respuesta del modo índice ({temas:[{linea,titulo,…}]}) en temas con el texto original de cada tramo
 function temasDeIndice(r, lineas){
@@ -676,11 +722,12 @@ function temasDeIndice(r, lineas){
 }
 async function guardarApuntes(){
   const fila = { user_id: S.session.user.id, asignatura: S.subject || "", temas: S.topics, actualizado_at: new Date().toISOString() };
-  if (S.apuntesId) await sb.from("apuntes").update(fila).eq("id", S.apuntesId);
-  else { const { data } = await sb.from("apuntes").insert(fila).select("id").single(); S.apuntesId = data?.id || null }
+  if (S.apuntesId) { const { error } = await sb.from("apuntes").update(fila).eq("id", S.apuntesId); if (error) throw error }
+  else { const { data, error } = await sb.from("apuntes").insert(fila).select("id").single(); if (error) throw error; S.apuntesId = data?.id || null }
 }
+const avisoSinGuardar = (e) => { console.error("apuntes", e?.message || e); flash("No se han podido guardar tus apuntes en la cuenta. Puedes seguir, pero revisa tu conexión.", "notice") };
 let saveT = null;
-const guardarLuego = () => { clearTimeout(saveT); saveT = setTimeout(() => guardarApuntes().catch(() => {}), 800) };
+const guardarLuego = () => { clearTimeout(saveT); saveT = setTimeout(() => guardarApuntes().catch(avisoSinGuardar), 800) };
 
 /* ============ 2. qué entra ============ */
 function vTopics(){
@@ -874,7 +921,11 @@ function porIdeas(q, a){
   const nota = Math.round(Math.min(10, 10 * (0.75 * fracClaves + 0.25 * Math.min(1, fracModelo * 1.6))));
   return { nota, aprox: true, comentario: `Corrección aproximada (la IA no ha podido corregirla ahora): cubres ${claves.length - faltan.length} de ${claves.length} ideas clave.${faltan.length ? ` Repasa: ${faltan.join(", ")}.` : ""}` };
 }
+// Cada examen se entrega una sola vez (el reloj y el botón pueden llegar a la vez)
+const entregados = new WeakSet();
 async function submit(auto){
+  if (!S.exam || entregados.has(S.exam)) return;
+  entregados.add(S.exam);
   clearInterval(S.timer);
   const { test, cortas } = S.exam;
   const testRes = test.map((q, i) => ({ ok: S.answers.test[i] === q.correcta, given: S.answers.test[i] }));
@@ -903,10 +954,21 @@ async function submit(auto){
   S.result = { testRes, shortRes, nota, temas, auto };
   S.review = null;
   const antes = S.racha?.hoy;
-  sb.from("simulacros").insert({ user_id: S.session.user.id, apuntes_id: S.apuntesId, asignatura: S.subject || "", examen: { ...S.exam, respuestas: S.answers }, resultado: S.result, nota })
+  guardarSimulacro({ user_id: S.session.user.id, apuntes_id: S.apuntesId, asignatura: S.subject || "", examen: { ...S.exam, respuestas: S.answers }, resultado: S.result, nota })
     .then(() => loadComunidad()).then(() => pintarRacha(!antes), () => {});
   refreshCuenta().then(avisoUltimos);
   go("results");
+}
+// Guarda el resultado (cuenta para la racha y el ranking). Reintenta una vez y, si no puede, avisa en vez de callar.
+async function guardarSimulacro(fila){
+  for (let i = 0; i < 2; i++) {
+    const { error } = await sb.from("simulacros").insert(fila);
+    if (!error) return;
+    console.error("simulacros", error.message);
+    if (!i) await new Promise(ok => setTimeout(ok, 1500));
+  }
+  if (S.view === "results") flash("No se ha podido guardar este simulacro en tu historial (no contará para la racha). Revisa tu conexión.", "notice");
+  throw new Error("simulacro sin guardar");
 }
 function vResults(){
   const R = S.result, { test, cortas } = S.exam;
@@ -1016,8 +1078,18 @@ function vReview(){
   $("#pdf", el).onclick = makePdf;
   return el;
 }
-function makePdf(){
-  const { jsPDF } = window.jspdf; const doc = new jsPDF({ unit: "mm", format: "a4" });
+// jsPDF (115 KB comprimido) solo se descarga al pulsar "Descargar PDF", no al abrir la app
+let jspdf = null;
+const cargarJsPdf = () => jspdf ??= new Promise((ok, ko) => {
+  const s = document.createElement("script"); s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+  s.onload = () => ok(window.jspdf);
+  s.onerror = () => { jspdf = null; ko(new Error("jspdf")) };
+  document.head.append(s);
+});
+async function makePdf(){
+  let jsPDF;
+  try { ({ jsPDF } = await cargarJsPdf()) } catch { return flash("No se ha podido preparar el PDF. Revisa tu conexión y vuelve a intentarlo.") }
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
   const M = 18, maxW = 210 - M * 2; let y = 22;
   const line = (txt, size, style, color) => {
     doc.setFont("helvetica", style || "normal"); doc.setFontSize(size); doc.setTextColor(...(color || [22, 33, 61]));

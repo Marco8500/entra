@@ -10,6 +10,7 @@ import pago from "./netlify/functions/pago.mjs";
 import ranking from "./netlify/functions/ranking.mjs";
 import repaso from "./netlify/functions/repaso.mjs";
 import stripeWebhook from "./netlify/functions/stripe-webhook.mjs";
+import { peticion } from "./netlify/lib/entra.mjs";
 
 const API = {
   "/api/borrar": borrar, "/api/chat": chat, "/api/corregir": corregir, "/api/cuenta": cuenta,
@@ -23,7 +24,7 @@ export default {
     if (!handler) return env.ASSETS.fetch(req);
     globalThis.__ENTRA_ENV = env;
     globalThis.__ENTRA_AI = env.AI;
-    try { return await handler(req, ctx) }
+    try { return await peticion.run(ctx, () => handler(req, ctx)) }
     catch (e) {
       console.error(req.url, e?.stack || e);
       return new Response(JSON.stringify({ error: "servidor", mensaje: "Algo ha fallado en el servidor. Vuelve a intentarlo." }), { status: 500, headers: { "content-type": "application/json" } });

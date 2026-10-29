@@ -48,7 +48,10 @@ Responde SOLO con JSON:
     onDone: async () => {
       await sumarUso(a.db, a.user.id, { simulacros: cuenta ? 1 : 0, bloques: 1 });
       // Primer simulacro de alguien invitado: premio para los dos (la función ignora el resto de casos)
-      if (cuenta) await a.db.rpc("premiar_invitacion", { p_user: a.user.id });
+      if (cuenta) {
+        const { error: e } = await a.db.rpc("premiar_invitacion", { p_user: a.user.id });
+        if (e) console.error("premiar_invitacion", a.user.id, e.message);
+      }
     },
   });
 };

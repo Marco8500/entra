@@ -1,11 +1,12 @@
 // POST /api/repaso · hoja de repaso de los temas flojos con trucos y búsquedas de YouTube
 // body: { asignatura, temas:[{titulo, contenido}], fallos:[texto] }
-import { autenticar, error, streamIA, texto, MODELO_RAPIDO } from "../lib/entra.mjs";
+import { autenticar, error, errorLimite, streamIA, sumarCorreccion, texto, MODELO_RAPIDO } from "../lib/entra.mjs";
 
 export default async (req) => {
   if (req.method !== "POST") return error("metodo", "Usa POST.", 405);
   const a = await autenticar(req);
   if (a.fallo) return a.fallo;
+  if (a.uso.correcciones >= a.limite.correcciones) return errorLimite(a.plan, "correcciones", a.limite.correcciones, "correcciones y repasos");
   let b;
   try { b = await req.json(); } catch { return error("json", "Petición mal formada."); }
   const temas = (Array.isArray(b.temas) ? b.temas : []).slice(0, 12);
@@ -22,7 +23,7 @@ ${fallos || "(solo respuestas cortas flojas)"}
 Para cada tema: "resumen" de 60-110 palabras centrado en lo que falló; "claves": 3 trucos o reglas para memorizar (cortos, tipo "Discontinuo → Dosímetro"); "busquedas": 2 búsquedas de YouTube en español que den vídeos explicativos de ese tema a nivel FP/bachillerato.
 Responde SOLO con JSON: [{"tema":"...","resumen":"...","claves":["..."],"busquedas":["..."]}]`;
 
-  return streamIA({ ruta: "repaso", content: [{ type: "text", text: prompt }], maxTokens: 5000, model: MODELO_RAPIDO,
+  return streamIA({ ruta: "repaso", content: [{ type: "text", text: prompt }], maxTokens: 5000, model: MODELO_RAPIDO, onDone: () => sumarCorreccion(a.db, a.user.id),
     validar: (r) => Array.isArray(r) && r.length > 0 && r.every((x) => x?.tema && x?.resumen) });
 };
 

@@ -1,6 +1,6 @@
 // POST /api/chat · tutor de Entra: reenvía la pregunta al escenario de Make (webhook → IA → respuesta)
 // body: { mensaje, historial:[{de:"alumno"|"tutor", texto}], contexto }
-import { env, autenticar, error, json, texto } from "../lib/entra.mjs";
+import { env, autenticar, error, json, mesActual, texto } from "../lib/entra.mjs";
 
 export default async (req) => {
   if (req.method !== "POST") return error("metodo", "Usa POST.", 405);
@@ -31,7 +31,8 @@ export default async (req) => {
       console.error("Make chat", r.status, respuesta.slice(0, 200));
       return error("chat_off", "El tutor no está disponible ahora mismo. Prueba más tarde.", 503);
     }
-    await a.db.rpc("sumar_mensaje", { p_user: a.user.id, p_mes: new Date().toISOString().slice(0, 7) });
+    const { error: e } = await a.db.rpc("sumar_mensaje", { p_user: a.user.id, p_mes: mesActual() });
+    if (e) console.error("sumar_mensaje", a.user.id, e.message);
     return json({ respuesta });
   } catch (e) {
     console.error("Make chat", e);

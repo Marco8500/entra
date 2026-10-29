@@ -127,7 +127,8 @@ http.createServer(async (req, res) => {
 
 /* ---------------- Stripe ---------------- */
 const sesiones = new Map(), subs = new Map(), clientes = new Map();
-let n = 0; const id = (p) => `${p}_mock${++n}`;
+// Ids únicos también entre reinicios del simulador (la tabla pases recuerda los ids de sesión ya cobrados)
+let n = 0; const arranque = Date.now().toString(36); const id = (p) => `${p}_mock${arranque}${++n}`;
 const sJSON = (res, d, s = 200) => { res.writeHead(s, { "content-type": "application/json" }); res.end(JSON.stringify(d)) };
 
 async function webhook(type, object) {

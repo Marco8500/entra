@@ -5,3 +5,5 @@ supabase/.temp/
 supabase/.branches/
 .dev.vars
 .wrangler/
+tests/e2e/capturas/
+wrangler.local.toml

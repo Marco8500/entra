@@ -1,14 +1,25 @@
 // Utilidades compartidas por las funciones de Entra
 import { createClient } from "@supabase/supabase-js";
+import { AsyncLocalStorage } from "node:async_hooks";
 import Stripe from "stripe";
 
 export const LIMITES = {
-  free: { simulacros: 3, paginas: 25, bloques: 20, mensajes: 20 },
-  pro: { simulacros: 60, paginas: 300, bloques: 400, mensajes: 200 },
+  free: { simulacros: 3, paginas: 25, bloques: 20, mensajes: 20, correcciones: 40 },
+  pro: { simulacros: 60, paginas: 300, bloques: 400, mensajes: 200, correcciones: 800 },
 };
 
 // Variables de entorno: en Netlify vienen en process.env; en Cloudflare las pasa functions/_lib.js
 export const env = (k) => globalThis.__ENTRA_ENV?.[k] ?? (typeof process !== "undefined" ? process.env?.[k] : undefined);
+
+// Contexto de la petición (Cloudflare): permite dejar trabajo en segundo plano (registros) sin retrasar la respuesta
+export const peticion = new AsyncLocalStorage();
+/** Ejecuta `p` sin esperar a que termine; en Cloudflare con waitUntil para que no se corte al responder */
+export function enSegundoPlano(p) {
+  const ctx = peticion.getStore();
+  const seguro = Promise.resolve(p).catch((e) => console.error("segundo plano", e?.message || e));
+  if (ctx?.waitUntil) ctx.waitUntil(seguro);
+  return seguro;
+}
 const lista = (v) => (v || "").split(",").map((x) => x.trim()).filter(Boolean);
 
 // Modelo "normal" (leer apuntes, examen) o "rápido" (corregir, repaso)
@@ -132,15 +143,26 @@ export async function autenticar(req) {
   const { data, error: e } = await db.auth.getUser(token);
   if (e || !data?.user) return { fallo: error("no_auth", "Tu sesión ha caducado. Vuelve a entrar.", 401) };
   const user = data.user;
-  const { data: perfil } = await db.from("perfiles").select("plan, pro_hasta, acepto_terminos_at, extra_simulacros, extra_paginas").eq("id", user.id).maybeSingle();
+  // Perfil y uso del mes a la vez (antes iban uno detrás de otro)
+  const [{ data: perfil, error: e1 }, { data: uso, error: e2 }] = await Promise.all([
+    db.from("perfiles").select("plan, pro_hasta, acepto_terminos_at, extra_simulacros, extra_paginas").eq("id", user.id).maybeSingle(),
+    db.from("uso").select("simulacros, paginas, bloques, mensajes, correcciones").eq("user_id", user.id).eq("mes", mesActual()).maybeSingle(),
+  ]);
+  if (e1 || e2) throw new Error("autenticar: " + (e1 || e2).message);
   if (!perfil?.acepto_terminos_at) return { fallo: error("terminos", "Acepta los términos para usar Entra.", 403) };
   const plan = planDe(user, perfil);
-  const { data: uso } = await db.from("uso").select("simulacros, paginas, bloques, mensajes").eq("user_id", user.id).eq("mes", mesActual()).maybeSingle();
-  return { user, plan, db, uso: uso || { simulacros: 0, paginas: 0, bloques: 0, mensajes: 0 }, limite: limiteDe(plan, perfil) };
+  return { user, plan, db, uso: { simulacros: 0, paginas: 0, bloques: 0, mensajes: 0, correcciones: 0, ...uso }, limite: limiteDe(plan, perfil) };
 }
 
 export async function sumarUso(db, userId, { simulacros = 0, paginas = 0, bloques = 0 }) {
-  await db.rpc("sumar_uso", { p_user: userId, p_mes: mesActual(), p_sim: simulacros, p_pag: paginas, p_blo: bloques });
+  const { error: e } = await db.rpc("sumar_uso", { p_user: userId, p_mes: mesActual(), p_sim: simulacros, p_pag: paginas, p_blo: bloques });
+  if (e) console.error("sumar_uso", userId, e.message);
+}
+
+/** Corrección o repaso hecho por la IA (límite propio para que no se abuse de la IA gratis) */
+export async function sumarCorreccion(db, userId) {
+  const { error: e } = await db.rpc("sumar_correccion", { p_user: userId, p_mes: mesActual() });
+  if (e) console.error("sumar_correccion", userId, e.message);
 }
 
 /** Lanza la petición en streaming. `content` va en formato de Anthropic (bloques text/image). */
@@ -202,14 +224,15 @@ export function jsonDe(t) {
 }
 
 /** Apunta una respuesta buena (proveedor, modelo y milisegundos) para medir la velocidad real */
-async function anotarAcierto(ruta, p, m, ms) {
-  try { await admin().from("ia_errores").insert({ ruta, proveedor: p, modelo: m, status: 200, ok: true, ms, detalle: "ok" }) } catch {}
+function anotarAcierto(ruta, p, m, ms) {
+  enSegundoPlano(admin().from("ia_errores").insert({ ruta, proveedor: p, modelo: m, status: 200, ok: true, ms, detalle: "ok" }));
 }
 
 /** Apunta un fallo de la IA en ia_errores (sin datos del alumno: solo proveedor, modelo, código y mensaje) */
-async function anotarFallo(ruta, p, m, status, detalle) {
+// No se espera a la base de datos: el registro no debe retrasar el paso a la siguiente IA
+function anotarFallo(ruta, p, m, status, detalle) {
   console.error("Error de la IA", ruta, p, m, status, String(detalle).slice(0, 300));
-  try { await admin().from("ia_errores").insert({ ruta, proveedor: p, modelo: m, status, detalle: String(detalle).slice(0, 500) }) } catch {}
+  enSegundoPlano(admin().from("ia_errores").insert({ ruta, proveedor: p, modelo: m, status, detalle: String(detalle).slice(0, 500) }));
 }
 
 /**
@@ -241,7 +264,7 @@ export function streamIA({ content, model = MODELO, maxTokens = 8000, onDone, ru
           clearTimeout(reloj);
           if (!r.ok || !r.body) {
             const t = await r.text().catch(() => "");
-            await anotarFallo(ruta, p.nombre, m, r.status, t);
+            anotarFallo(ruta, p.nombre, m, r.status, t);
             ultimo = r.status;
             if (/per day|perday|quota/i.test(t)) agotado++;
             if ([429, 500, 502, 503, 504, 529].includes(r.status)) enfriando.set(p.nombre + m, Date.now() + ENFRIAR_MS);
@@ -261,23 +284,23 @@ export function streamIA({ content, model = MODELO, maxTokens = 8000, onDone, ru
               if (!line || line.trim() === "data: [DONE]") continue;
               let d; try { d = JSON.parse(line.slice(5)) } catch { continue }
               const t = textoDe(p, d);
-              if (t === null) { await anotarFallo(ruta, p.nombre, m, 200, "stream: " + line); fallo = true; break }
+              if (t === null) { anotarFallo(ruta, p.nombre, m, 200, "stream: " + line); fallo = true; break }
               if (t && validar) { junto += t; ok = true }
               else if (t) { if (!ok) parar(); ok = true; controller.enqueue(enc.encode(t)) }
             }
           }
           if (ok && validar) {
             let valido = false; try { valido = !fallo && !!validar(jsonDe(junto)) } catch {}
-            if (!valido) { reader.cancel().catch(() => {}); await anotarFallo(ruta, p.nombre, m, 200, "respuesta no válida: " + junto.slice(-300)); ok = false; ultimo = 500; continue }
+            if (!valido) { reader.cancel().catch(() => {}); anotarFallo(ruta, p.nombre, m, 200, "respuesta no válida: " + junto.slice(-300)); ok = false; ultimo = 500; continue }
             parar(); controller.enqueue(enc.encode(junto));
           }
           if (ok) {
             if (fallo) controller.enqueue(enc.encode(`\n[[ERROR:ia]]`));
-            else await anotarAcierto(ruta, p.nombre, m, Date.now() - inicio);
+            else anotarAcierto(ruta, p.nombre, m, Date.now() - inicio);
             break;
           }
           // No llegó a escribir nada: probamos con el siguiente
-          if (!fallo) await anotarFallo(ruta, p.nombre, m, 200, "respuesta vacía");
+          if (!fallo) anotarFallo(ruta, p.nombre, m, 200, "respuesta vacía");
           reader.cancel().catch(() => {});
           ultimo = 500;
         }
@@ -290,7 +313,7 @@ export function streamIA({ content, model = MODELO, maxTokens = 8000, onDone, ru
         controller.close();
       } catch (e) {
         parar();
-        await anotarFallo(ruta, "-", "-", 0, e?.stack || e);
+        anotarFallo(ruta, "-", "-", 0, e?.stack || e);
         try { controller.enqueue(enc.encode(`\n[[ERROR:ia]]`)); controller.close(); } catch {}
       }
     },
