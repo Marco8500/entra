@@ -34,8 +34,8 @@ async function api(path, body, onText){
     signal: ctl?.signal,
   });
   const ct = r.headers.get("content-type") || "";
-  // 502/504: Netlify ha cortado la petición porque la IA tardaba demasiado → se reintenta como "saturada"
-  if (r.status === 502 || r.status === 504) throw new ApiError("ocupado", "La IA está saturada ahora mismo. Prueba en un minuto.");
+  // 5xx: el servidor o la IA han fallado o tardado demasiado → se reintenta como "saturada" (no es un error de la cuenta)
+  if (r.status >= 500) throw new ApiError("ocupado", "La IA está saturada ahora mismo. Prueba en un minuto.");
   if (!r.ok) {
     let d = {}; try { d = await r.json() } catch {}
     throw new ApiError(d.error || "http", d.mensaje || "Algo ha fallado. Vuelve a intentarlo.", r.status);
@@ -85,7 +85,7 @@ async function enParalelo(tareas, n){
   return res;
 }
 // Los errores de cuenta (límites, sesión) paran todo; los de la IA solo pierden ese trozo
-const soloIA = (e) => { if (e?.name === "AbortError" || e?.status) throw e; return null };
+const soloIA = (e) => { if (e?.name === "AbortError" || [401, 402, 403].includes(e?.status)) throw e; return null };
 
 async function refreshCuenta(){
   try { S.cuenta = await api("/api/cuenta") } catch (e) { S.cuenta = null }
@@ -572,7 +572,7 @@ function vHome(){
   return el;
 }
 
-/* reduce cada foto a ≤1568 px en JPEG para que viaje ligera */
+/* reduce cada foto a ≤1400 px en JPEG para que viaje ligera */
 /* PDF: se lee en el navegador con pdf.js. Si una página trae texto se usa el texto (más rápido y barato);
    si es una página escaneada (sin texto) se convierte en imagen como una foto. */
 const MAX_PAGINAS_SUBIDA = 60;
@@ -598,20 +598,20 @@ async function leerPdf(file, fotos, textos, progreso){
     const txt = (await page.getTextContent()).items.map((it) => it.str + (it.hasEOL ? "\n" : " ")).join("").replace(/[ \t]+/g, " ").trim();
     if (txt.length >= 80) { textos.push(`[${file.name} · página ${n}]\n${txt}`); continue }
     // página escaneada → imagen
-    const vp1 = page.getViewport({ scale: 1 }), k = Math.min(2.5, 1568 / Math.max(vp1.width, vp1.height));
+    const vp1 = page.getViewport({ scale: 1 }), k = Math.min(2.5, 1400 / Math.max(vp1.width, vp1.height));
     const vp = page.getViewport({ scale: k }), c = document.createElement("canvas");
     c.width = Math.round(vp.width); c.height = Math.round(vp.height);
     await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
-    fotos.push({ tipo: "image/jpeg", base64: c.toDataURL("image/jpeg", 0.82).split(",")[1] });
+    fotos.push({ tipo: "image/jpeg", base64: c.toDataURL("image/jpeg", 0.78).split(",")[1] });
   }
 }
 async function comprimir(file){
   const bmp = await createImageBitmap(file, { imageOrientation: "from-image" }).catch(() => null);
   if (!bmp) throw new ApiError("foto", `No se ha podido abrir ${file.name}.`);
-  const k = Math.min(1, 1568 / Math.max(bmp.width, bmp.height));
+  const k = Math.min(1, 1400 / Math.max(bmp.width, bmp.height));
   const c = document.createElement("canvas"); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
   c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
-  const url = c.toDataURL("image/jpeg", 0.82);
+  const url = c.toDataURL("image/jpeg", 0.78);
   return { tipo: "image/jpeg", base64: url.split(",")[1] };
 }
 async function analyze(){
@@ -627,9 +627,9 @@ async function analyze(){
       else { setBusySub(`Preparando foto ${i + 1} de ${S.files.length}`); fotos.push(await comprimir(f)) }
     }
     if (fotos.length + textos.length > MAX_PAGINAS_SUBIDA) throw new ApiError("pdf", `Son ${fotos.length + textos.length} páginas. Sube como mucho ${MAX_PAGINAS_SUBIDA} cada vez (solo lo que entra en el examen).`);
-    // Lotes: 4 imágenes, u 8 páginas de texto (el texto pegado va con el primer lote de texto)
+    // Lotes: 2 imágenes, u 8 páginas de texto (el texto pegado va con el primer lote de texto)
     const lotes = [];
-    for (let i = 0; i < fotos.length; i += 4) lotes.push({ fotos: fotos.slice(i, i + 4), texto: "", paginas: 0 });
+    for (let i = 0; i < fotos.length; i += 2) lotes.push({ fotos: fotos.slice(i, i + 2), texto: "", paginas: 0 });
     const conPegado = S.pasted.trim() ? [S.pasted.trim()] : [];
     for (let i = 0; i < textos.length || (i === 0 && conPegado.length); i += 8) {
       const trozo = textos.slice(i, i + 8);

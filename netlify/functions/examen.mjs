@@ -42,7 +42,7 @@ Responde SOLO con JSON:
 {"test":[{"pregunta":"...","opciones":["..."],"correcta":0,"tema":"título exacto del tema","explicacion":"una frase"}],
  "cortas":[{"pregunta":"...","tema":"título exacto del tema","respuestaModelo":"...","puntosClave":["..."]}]}`;
 
-  return streamIA({
+  return streamIA({ ruta: "examen",
     content: [{ type: "text", text: prompt }],
     maxTokens: 7000,
     onDone: async () => {

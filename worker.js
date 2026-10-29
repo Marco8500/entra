@@ -23,6 +23,10 @@ export default {
     if (!handler) return env.ASSETS.fetch(req);
     globalThis.__ENTRA_ENV = env;
     globalThis.__ENTRA_AI = env.AI;
-    return handler(req, ctx);
+    try { return await handler(req, ctx) }
+    catch (e) {
+      console.error(req.url, e?.stack || e);
+      return new Response(JSON.stringify({ error: "servidor", mensaje: "Algo ha fallado en el servidor. Vuelve a intentarlo." }), { status: 500, headers: { "content-type": "application/json" } });
+    }
   },
 };

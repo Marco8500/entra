@@ -41,7 +41,7 @@ export default async (req) => {
     ...fotos.map((f) => ({ type: "image", source: { type: "base64", media_type: f.tipo, data: f.base64 } })),
     { type: "text", text: PROMPT(pegado) },
   ];
-  return streamIA({
+  return streamIA({ ruta: "leer",
     content,
     maxTokens: 6000,
     onDone: () => sumarUso(a.db, a.user.id, { paginas }),

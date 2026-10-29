@@ -49,6 +49,24 @@ function proveedores() {
 const enfriando = new Map();
 const ENFRIAR_MS = 60_000;
 
+/**
+ * Aprende de los fallos: cuenta los errores de cada proveedor/modelo en los últimos 15 minutos (tabla ia_errores,
+ * compartida por todos los servidores) y manda al final de la cola a los que fallan mucho. Se refresca cada minuto.
+ */
+const salud = { ts: 0, fallos: new Map() };
+async function cargarSalud() {
+  if (Date.now() - salud.ts < 60_000) return;
+  salud.ts = Date.now();
+  try {
+    const { data } = await admin().from("ia_errores").select("proveedor, modelo")
+      .gte("creado_at", new Date(Date.now() - 15 * 60_000).toISOString()).limit(1000);
+    const f = new Map();
+    for (const r of data || []) f.set(r.proveedor + r.modelo, (f.get(r.proveedor + r.modelo) || 0) + 1);
+    salud.fallos = f;
+  } catch {}
+}
+const FALLOS_PARA_RELEGAR = 3;
+
 /** Lista de intentos {proveedor, modelo} para una petición */
 function cadena(model, conFotos) {
   const intentos = [];
@@ -60,7 +78,10 @@ function cadena(model, conFotos) {
   }
   const ahora = Date.now();
   const libres = intentos.filter((i) => !(enfriando.get(i.p.nombre + i.m) > ahora));
-  return libres.length ? libres : intentos; // si todos están enfriando, se prueban igual
+  const lista = libres.length ? libres : intentos; // si todos están enfriando, se prueban igual
+  // Los que más han fallado últimamente, al final (sort es estable: el resto mantiene el orden de IA_ORDEN)
+  const malo = (i) => (salud.fallos.get(i.p.nombre + i.m) || 0) >= FALLOS_PARA_RELEGAR;
+  return [...lista].sort((a, b) => malo(a) - malo(b));
 }
 
 export const admin = () =>
@@ -170,7 +191,13 @@ function textoDe(p, d) {
  * enviando el texto al navegador según se escribe (evita los límites de
  * tiempo de las funciones normales).
  */
-export function streamIA({ content, model = MODELO, maxTokens = 8000, onDone }) {
+/** Apunta un fallo de la IA en ia_errores (sin datos del alumno: solo proveedor, modelo, código y mensaje) */
+async function anotarFallo(ruta, p, m, status, detalle) {
+  console.error("Error de la IA", ruta, p, m, status, String(detalle).slice(0, 300));
+  try { await admin().from("ia_errores").insert({ ruta, proveedor: p, modelo: m, status, detalle: String(detalle).slice(0, 500) }) } catch {}
+}
+
+export function streamIA({ content, model = MODELO, maxTokens = 8000, onDone, ruta = "" }) {
   const enc = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
@@ -180,6 +207,7 @@ export function streamIA({ content, model = MODELO, maxTokens = 8000, onDone }) 
       const parar = () => { clearInterval(latido); latido = null };
       controller.enqueue(enc.encode(" "));
       try {
+        await cargarSalud();
         const conFotos = content.some((c) => c.type === "image");
         const intentos = cadena(model, conFotos);
         let agotado = 0, ultimo = 0, ok = false;
@@ -193,7 +221,7 @@ export function streamIA({ content, model = MODELO, maxTokens = 8000, onDone }) 
           clearTimeout(reloj);
           if (!r.ok || !r.body) {
             const t = await r.text().catch(() => "");
-            console.error("Error de la IA", p.nombre, m, r.status, t.slice(0, 300));
+            await anotarFallo(ruta, p.nombre, m, r.status, t);
             ultimo = r.status;
             if (/per day|perday|quota/i.test(t)) agotado++;
             if ([429, 500, 502, 503, 504, 529].includes(r.status)) enfriando.set(p.nombre + m, Date.now() + ENFRIAR_MS);
@@ -213,7 +241,7 @@ export function streamIA({ content, model = MODELO, maxTokens = 8000, onDone }) 
               if (!line || line.trim() === "data: [DONE]") continue;
               let d; try { d = JSON.parse(line.slice(5)) } catch { continue }
               const t = textoDe(p, d);
-              if (t === null) { console.error("Error en el stream", p.nombre, m, line.slice(0, 300)); fallo = true; break }
+              if (t === null) { await anotarFallo(ruta, p.nombre, m, 200, "stream: " + line); fallo = true; break }
               if (t) { if (!ok) parar(); ok = true; controller.enqueue(enc.encode(t)) }
             }
           }
@@ -222,6 +250,7 @@ export function streamIA({ content, model = MODELO, maxTokens = 8000, onDone }) 
             break;
           }
           // No llegó a escribir nada: probamos con el siguiente
+          if (!fallo) await anotarFallo(ruta, p.nombre, m, 200, "respuesta vacía");
           reader.cancel().catch(() => {});
           ultimo = 500;
         }
@@ -234,7 +263,7 @@ export function streamIA({ content, model = MODELO, maxTokens = 8000, onDone }) 
         controller.close();
       } catch (e) {
         parar();
-        console.error(e);
+        await anotarFallo(ruta, "-", "-", 0, e?.stack || e);
         try { controller.enqueue(enc.encode(`\n[[ERROR:ia]]`)); controller.close(); } catch {}
       }
     },

@@ -21,7 +21,7 @@ Respuesta del alumno: <<<${texto(p.respuesta, 2000) || "(vacía)"}>>>`).join("\n
 
 Responde SOLO con JSON: [{"i":0,"nota":7,"comentario":"..."}]`;
 
-  return streamIA({ content: [{ type: "text", text: prompt }], maxTokens: 2500, model: MODELO_RAPIDO });
+  return streamIA({ ruta: "corregir", content: [{ type: "text", text: prompt }], maxTokens: 2500, model: MODELO_RAPIDO });
 };
 
 export const config = { path: "/api/corregir" };
