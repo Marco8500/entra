@@ -531,6 +531,7 @@ function vHome(){
         <input type="file" id="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.pdf" multiple>
         <strong>📷 Haz fotos o sube capturas o PDF</strong>
         <span class="muted small">Lee tus anotaciones: "entra", "no entra", "test", "pregunta corta"</span>
+        <span class="muted small">PDF con texto: hasta 60 páginas · Fotos o PDF escaneado: hasta 15</span>
       </label>
       <div class="thumbs" id="thumbs"></div>
       <label class="field" for="paste">O pega el texto de tus apuntes<textarea id="paste" placeholder="Pega aquí apuntes en texto…">${esc(S.pasted)}</textarea></label>
@@ -575,7 +576,7 @@ function vHome(){
 /* reduce cada foto a ≤1400 px en JPEG para que viaje ligera */
 /* PDF: se lee en el navegador con pdf.js. Si una página trae texto se usa el texto (más rápido y barato);
    si es una página escaneada (sin texto) se convierte en imagen como una foto. */
-const MAX_PAGINAS_SUBIDA = 60;
+const MAX_PAGINAS_SUBIDA = 60, MAX_IMAGENES_SUBIDA = 15;
 const esPdf = (f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name || "");
 let pdfjs = null;
 const cargarPdfjs = () => pdfjs ??= new Promise((ok, ko) => {
@@ -626,6 +627,7 @@ async function analyze(){
       if (esPdf(f)) await leerPdf(f, fotos, textos, (n, t) => setBusySub(`Abriendo ${f.name}: página ${n} de ${t}`));
       else { setBusySub(`Preparando foto ${i + 1} de ${S.files.length}`); fotos.push(await comprimir(f)) }
     }
+    if (fotos.length > MAX_IMAGENES_SUBIDA) throw new ApiError("pdf", `Hay ${fotos.length} fotos o páginas escaneadas. Se leen más despacio: sube como mucho ${MAX_IMAGENES_SUBIDA} cada vez (solo lo que entra en el examen). Los PDF con texto pueden ser más largos.`);
     if (fotos.length + textos.length > MAX_PAGINAS_SUBIDA) throw new ApiError("pdf", `Son ${fotos.length + textos.length} páginas. Sube como mucho ${MAX_PAGINAS_SUBIDA} cada vez (solo lo que entra en el examen).`);
     // Lotes: 2 imágenes, u 8 páginas de texto (el texto pegado va con el primer lote de texto)
     const lotes = [];

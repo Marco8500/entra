@@ -324,3 +324,8 @@ create table if not exists public.ia_errores (
 );
 alter table public.ia_errores enable row level security;
 create index if not exists ia_errores_fecha_idx on public.ia_errores (creado_at desc);
+
+-- ============ Medidas de la IA (migración 20261029010000_ia_medidas) ============
+-- ia_errores también guarda las respuestas buenas (ok = true) con lo que tardaron, para medir la velocidad real
+alter table public.ia_errores add column if not exists ok boolean not null default false;
+alter table public.ia_errores add column if not exists ms int;

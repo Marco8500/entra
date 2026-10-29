@@ -58,7 +58,7 @@ async function cargarSalud() {
   if (Date.now() - salud.ts < 60_000) return;
   salud.ts = Date.now();
   try {
-    const { data } = await admin().from("ia_errores").select("proveedor, modelo")
+    const { data } = await admin().from("ia_errores").select("proveedor, modelo").eq("ok", false)
       .gte("creado_at", new Date(Date.now() - 15 * 60_000).toISOString()).limit(1000);
     const f = new Map();
     for (const r of data || []) f.set(r.proveedor + r.modelo, (f.get(r.proveedor + r.modelo) || 0) + 1);
@@ -191,6 +191,11 @@ function textoDe(p, d) {
  * enviando el texto al navegador según se escribe (evita los límites de
  * tiempo de las funciones normales).
  */
+/** Apunta una respuesta buena (proveedor, modelo y milisegundos) para medir la velocidad real */
+async function anotarAcierto(ruta, p, m, ms) {
+  try { await admin().from("ia_errores").insert({ ruta, proveedor: p, modelo: m, status: 200, ok: true, ms, detalle: "ok" }) } catch {}
+}
+
 /** Apunta un fallo de la IA en ia_errores (sin datos del alumno: solo proveedor, modelo, código y mensaje) */
 async function anotarFallo(ruta, p, m, status, detalle) {
   console.error("Error de la IA", ruta, p, m, status, String(detalle).slice(0, 300));
@@ -211,6 +216,7 @@ export function streamIA({ content, model = MODELO, maxTokens = 8000, onDone, ru
         const conFotos = content.some((c) => c.type === "image");
         const intentos = cadena(model, conFotos);
         let agotado = 0, ultimo = 0, ok = false;
+        const inicio = Date.now();
         for (const { p, m } of intentos) {
           // Si un proveedor no contesta en 25 s, pasamos al siguiente
           const ac = new AbortController();
@@ -247,6 +253,7 @@ export function streamIA({ content, model = MODELO, maxTokens = 8000, onDone, ru
           }
           if (ok) {
             if (fallo) controller.enqueue(enc.encode(`\n[[ERROR:ia]]`));
+            else await anotarAcierto(ruta, p.nombre, m, Date.now() - inicio);
             break;
           }
           // No llegó a escribir nada: probamos con el siguiente
