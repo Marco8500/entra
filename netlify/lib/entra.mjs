@@ -191,6 +191,16 @@ function textoDe(p, d) {
  * enviando el texto al navegador según se escribe (evita los límites de
  * tiempo de las funciones normales).
  */
+/** Lee JSON aunque venga con ```json, texto alrededor o espacios del latido. Devuelve null si no se puede. */
+export function jsonDe(t) {
+  const s = String(t || "").trim();
+  try { return JSON.parse(s) } catch {}
+  const f = s.match(/```(?:json)?\s*([\s\S]*?)```/); if (f) { try { return JSON.parse(f[1]) } catch {} }
+  const a = Math.min(...["{", "["].map((c) => s.indexOf(c)).filter((i) => i >= 0)), b = Math.max(s.lastIndexOf("}"), s.lastIndexOf("]"));
+  if (a >= 0 && b > a) { try { return JSON.parse(s.slice(a, b + 1)) } catch {} }
+  return null;
+}
+
 /** Apunta una respuesta buena (proveedor, modelo y milisegundos) para medir la velocidad real */
 async function anotarAcierto(ruta, p, m, ms) {
   try { await admin().from("ia_errores").insert({ ruta, proveedor: p, modelo: m, status: 200, ok: true, ms, detalle: "ok" }) } catch {}
@@ -202,7 +212,11 @@ async function anotarFallo(ruta, p, m, status, detalle) {
   try { await admin().from("ia_errores").insert({ ruta, proveedor: p, modelo: m, status, detalle: String(detalle).slice(0, 500) }) } catch {}
 }
 
-export function streamIA({ content, model = MODELO, maxTokens = 8000, onDone, ruta = "" }) {
+/**
+ * Con `validar(json)`, la respuesta no se envía en directo: se junta entera, se comprueba y, si viene cortada o mal
+ * formada, se apunta como fallo y se pide a la siguiente IA. Para respuestas cortas (corregir, repaso, leer).
+ */
+export function streamIA({ content, model = MODELO, maxTokens = 8000, onDone, ruta = "", validar = null }) {
   const enc = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
@@ -235,7 +249,7 @@ export function streamIA({ content, model = MODELO, maxTokens = 8000, onDone, ru
           }
           const reader = r.body.getReader();
           const dec = new TextDecoder();
-          let buf = "", fallo = false;
+          let buf = "", fallo = false, junto = "";
           while (!fallo) {
             const { value, done } = await reader.read();
             if (done) break;
@@ -248,8 +262,14 @@ export function streamIA({ content, model = MODELO, maxTokens = 8000, onDone, ru
               let d; try { d = JSON.parse(line.slice(5)) } catch { continue }
               const t = textoDe(p, d);
               if (t === null) { await anotarFallo(ruta, p.nombre, m, 200, "stream: " + line); fallo = true; break }
-              if (t) { if (!ok) parar(); ok = true; controller.enqueue(enc.encode(t)) }
+              if (t && validar) { junto += t; ok = true }
+              else if (t) { if (!ok) parar(); ok = true; controller.enqueue(enc.encode(t)) }
             }
+          }
+          if (ok && validar) {
+            let valido = false; try { valido = !fallo && !!validar(jsonDe(junto)) } catch {}
+            if (!valido) { reader.cancel().catch(() => {}); await anotarFallo(ruta, p.nombre, m, 200, "respuesta no válida: " + junto.slice(-300)); ok = false; ultimo = 500; continue }
+            parar(); controller.enqueue(enc.encode(junto));
           }
           if (ok) {
             if (fallo) controller.enqueue(enc.encode(`\n[[ERROR:ia]]`));

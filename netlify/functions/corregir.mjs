@@ -19,9 +19,11 @@ Respuesta modelo: ${texto(p.respuestaModelo, 1200)}
 Puntos clave: ${(Array.isArray(p.puntosClave) ? p.puntosClave : []).map((x) => texto(x, 200)).join("; ")}
 Respuesta del alumno: <<<${texto(p.respuesta, 2000) || "(vacía)"}>>>`).join("\n\n")}
 
-Responde SOLO con JSON: [{"i":0,"nota":7,"comentario":"..."}]`;
+Responde SOLO con JSON, con un elemento por cada respuesta (#0 a #${ps.length - 1}): [{"i":0,"nota":7,"comentario":"..."}]`;
 
-  return streamIA({ ruta: "corregir", content: [{ type: "text", text: prompt }], maxTokens: 2500, model: MODELO_RAPIDO });
+  // Las IAs que "piensan" gastan parte del límite antes de responder: margen amplio según el número de preguntas
+  return streamIA({ ruta: "corregir", content: [{ type: "text", text: prompt }], maxTokens: Math.min(8000, 2000 + ps.length * 500), model: MODELO_RAPIDO,
+    validar: (r) => Array.isArray(r) && ps.every((p, i) => !String(p.respuesta || "").trim() || r.some((x) => +x?.i === i && Number.isFinite(+x?.nota))) });
 };
 
 export const config = { path: "/api/corregir" };

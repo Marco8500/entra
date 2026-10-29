@@ -61,7 +61,8 @@ export default async (req) => {
   ];
   return streamIA({ ruta: indice ? "leer-indice" : "leer",
     content,
-    maxTokens: indice ? 2000 : 6000,
+    maxTokens: indice ? 3000 : 6000,
+    validar: (r) => r && Array.isArray(r.temas),
     onDone: () => sumarUso(a.db, a.user.id, { paginas }),
   });
 };

@@ -858,10 +858,21 @@ function vExam(){
 }
 
 /* ============ 5. corrección ============ */
-function porClaves(q, a){
-  const txt = (a || "").toLowerCase(); const keys = q.puntosClave || [];
-  const faltan = keys.filter(k => !txt.includes(String(k).toLowerCase()));
-  return { nota: keys.length ? Math.round((keys.length - faltan.length) / keys.length * 10) : 0, comentario: faltan.length ? `Corregida por palabras clave. Te faltan: ${faltan.join(", ")}.` : "Corregida por palabras clave: completa." };
+// Plan B si la IA no puede corregir: nota aproximada por ideas (no por frases exactas), con nota parcial
+const VACIAS = new Set("de la el los las un una unos unas y o u e a en con por para del al que se su sus es son lo como mas pero sin sobre entre cada cual muy ya tu te mi le les nos este esta esto estos estas ese esa eso donde cuando hay ser".split(" "));
+const SINONIMOS = { consu: "clie", compr: "clie", usuar: "clie", manda: "envi", reali: "hace", dista: "dist", ubica: "situ" };
+const raiz = (w) => SINONIMOS[w.slice(0, 5)] || (w.length > 4 ? w.slice(0, 4) : w);
+const ideas = (t) => String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9ñ]+/g, " ").split(" ")
+  .filter((w) => (w.length >= 3 || /\d/.test(w)) && !VACIAS.has(w)).map(raiz);
+function porIdeas(q, a){
+  const tiene = new Set(ideas(a));
+  const claves = (q.puntosClave || []).map((k) => ({ k, ws: ideas(k) })).filter((x) => x.ws.length);
+  const faltan = claves.filter((x) => x.ws.filter((w) => tiene.has(w)).length / x.ws.length < 0.5).map((x) => x.k);
+  const fracClaves = claves.length ? (claves.length - faltan.length) / claves.length : 0;
+  const modelo = [...new Set(ideas(q.respuestaModelo))];
+  const fracModelo = modelo.length ? modelo.filter((w) => tiene.has(w)).length / modelo.length : 0;
+  const nota = Math.round(Math.min(10, 10 * (0.75 * fracClaves + 0.25 * Math.min(1, fracModelo * 1.6))));
+  return { nota, aprox: true, comentario: `Corrección aproximada (la IA no ha podido corregirla ahora): cubres ${claves.length - faltan.length} de ${claves.length} ideas clave.${faltan.length ? ` Repasa: ${faltan.join(", ")}.` : ""}` };
 }
 async function submit(auto){
   clearInterval(S.timer);
@@ -874,9 +885,12 @@ async function submit(auto){
     busy("Corrigiendo tus respuestas…", auto ? "Se acabó el tiempo" : "Como lo haría tu profe");
     try {
       const out = await apiIA("/api/corregir", { preguntas: cortas.map((q, i) => ({ ...q, respuesta: resp[i] })) });
-      shortRes = cortas.map((q, i) => { const r = (Array.isArray(out) ? out : []).find(x => +x.i === i); return resp[i] ? { nota: Math.max(0, Math.min(10, +r?.nota || 0)), comentario: String(r?.comentario || "") } : { nota: 0, comentario: "Sin responder." } });
+      // Si la IA se ha saltado alguna, esa se corrige por ideas (nunca un 0 por error)
+      shortRes = cortas.map((q, i) => { const r = (Array.isArray(out) ? out : []).find(x => +x.i === i);
+        if (!resp[i]) return { nota: 0, comentario: "Sin responder." };
+        return r && Number.isFinite(+r.nota) ? { nota: Math.max(0, Math.min(10, +r.nota)), comentario: String(r.comentario || "") } : porIdeas(q, resp[i]) });
     } catch (e) {
-      shortRes = cortas.map((q, i) => resp[i] ? porClaves(q, resp[i]) : { nota: 0, comentario: "Sin responder." });
+      shortRes = cortas.map((q, i) => resp[i] ? porIdeas(q, resp[i]) : { nota: 0, comentario: "Sin responder." });
     }
   }
   const max = test.length + cortas.length * 2;

@@ -77,6 +77,11 @@ http.createServer(async (req, res) => {
     const bm = JSON.parse(body).model;
     if (agotados.includes("*") || agotados.includes(bm)) { log(`gemini 429 cupo diario agotado (${bm})`); res.writeHead(429); return res.end(`[{"error":{"code":429,"message":"Quota exceeded for metric: generate_content_free_tier_requests, limit: 20, model: ${bm}, description: Generate content requests per day limit exceeded on Free Tier"}}]`) }
     const b = JSON.parse(body);
+    // CORREGIR_ROTO=modelo: ese modelo devuelve la corrección cortada (JSON incompleto), como cuando se queda sin tokens
+    if (process.env.CORREGIR_ROTO === b.model && JSON.stringify(b.messages).includes("Corrige como un profesor")) {
+      log("gemini", b.model, "corrección cortada (simulada)"); res.writeHead(200, { "content-type": "text/event-stream" });
+      return res.end(`data: ${JSON.stringify({ choices: [{ delta: { content: '[{"i":0,"nota":7,"comentario":"Bien' } }] })}\n\ndata: [DONE]\n\n`);
+    }
     const c0 = b.messages?.[0]?.content || [];
     const parts = typeof c0 === "string" ? [{ type: "text", text: c0 }] : c0;
     const prompt = parts.filter((c) => c.type === "text").map((c) => c.text).join("\n");
