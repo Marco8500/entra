@@ -10,7 +10,7 @@ export default async (req) => {
   try { b = await req.json(); } catch { return error("json", "Petición mal formada."); }
 
   const temas = (Array.isArray(b.temas) ? b.temas : []).slice(0, 40)
-    .map((t) => ({ titulo: texto(t.titulo, 200), contenido: texto(t.contenido, 4000), notas: texto(t.notas, 300) }))
+    .map((t) => ({ titulo: texto(t.titulo, 200), contenido: texto(t.contenido, 8000), notas: texto(t.notas, 300) }))
     .filter((t) => t.titulo && t.contenido);
   const test = Math.max(0, Math.min(15, parseInt(b.test) || 0));
   const cortas = Math.max(0, Math.min(10, parseInt(b.cortas) || 0));

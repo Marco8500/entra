@@ -630,14 +630,17 @@ async function analyze(){
     // Lotes: 2 imágenes, u 8 páginas de texto (el texto pegado va con el primer lote de texto)
     const lotes = [];
     for (let i = 0; i < fotos.length; i += 2) lotes.push({ fotos: fotos.slice(i, i + 2), texto: "", paginas: 0 });
+    // Texto: modo índice, con las líneas numeradas; la IA solo dice dónde empieza cada tema
     const conPegado = S.pasted.trim() ? [S.pasted.trim()] : [];
     for (let i = 0; i < textos.length || (i === 0 && conPegado.length); i += 8) {
       const trozo = textos.slice(i, i + 8);
-      lotes.push({ fotos: [], texto: [...(i === 0 ? conPegado : []), ...trozo].join("\n\n"), paginas: trozo.length });
+      const lineas = [...(i === 0 ? conPegado : []), ...trozo].join("\n\n").split("\n").map(l => l.trim()).filter(Boolean);
+      lotes.push({ fotos: [], texto: lineas.map((l, n) => `${n + 1}| ${l}`).join("\n"), paginas: trozo.length, indice: true, lineas });
     }
     let hechos = 0, sinLeer = 0, ultimoError = null; setBusySub(`Leyendo ${fotos.length + textos.length || "el texto"}${fotos.length + textos.length ? " páginas" : ""}…`);
-    const outs = await enParalelo(lotes.map((lote) => () => apiIA("/api/leer", lote)
-      .then(r => { hechos++; setBusySub(`Leído ${hechos} de ${lotes.length} bloques`); return r }, e => { ultimoError = e; soloIA(e); sinLeer += lote.fotos.length || lote.paginas || 1; return null })), 2);
+    const outs = await enParalelo(lotes.map(({ lineas, ...lote }) => () => apiIA("/api/leer", lote)
+      .then(r => { hechos++; setBusySub(`Leído ${hechos} de ${lotes.length} bloques`); return lineas ? temasDeIndice(r, lineas) : r },
+        e => { ultimoError = e; soloIA(e); sinLeer += lote.fotos.length || lote.paginas || 1; return null })), 4);
     if (!outs.some(Boolean)) throw ultimoError || new ApiError("ia", "La IA ha fallado. Vuelve a intentarlo.");
     const map = new Map(); let asig = "";
     for (const out of outs) {
@@ -657,6 +660,17 @@ async function analyze(){
     go("topics");
     if (sinLeer) flash(`No he podido leer ${sinLeer} ${sinLeer === 1 ? "página" : "páginas"} porque la IA iba saturada. Puedes subirlas otra vez dentro de un minuto.`, "notice");
   } catch (e) { fail("home", e) }
+}
+// Convierte la respuesta del modo índice ({temas:[{linea,titulo,…}]}) en temas con el texto original de cada tramo
+function temasDeIndice(r, lineas){
+  const marcas = (r?.temas || []).map(t => ({ ...t, linea: parseInt(t.linea) }))
+    .filter(t => t.linea >= 1 && t.linea <= lineas.length && t.titulo).sort((a, b) => a.linea - b.linea)
+    .filter((t, i, arr) => !i || t.linea !== arr[i - 1].linea);
+  const limpiar = (ls) => ls.filter(l => !/^\[.+ · página \d+\]$/.test(l)).join("\n").trim();
+  if (!marcas.length) return { asignatura: r?.asignatura || "", temas: [{ titulo: "Apuntes", unidad: "", entra: null, notas: "", contenido: limpiar(lineas) }] };
+  const temas = marcas.map((t, i) => ({ titulo: String(t.titulo), unidad: String(t.unidad || ""), entra: t.entra, notas: String(t.notas || ""),
+    contenido: limpiar(lineas.slice(t.linea - 1, i + 1 < marcas.length ? marcas[i + 1].linea - 1 : lineas.length)) })).filter(t => t.contenido.length > 40);
+  return { asignatura: r?.asignatura || "", temas };
 }
 async function guardarApuntes(){
   const fila = { user_id: S.session.user.id, asignatura: S.subject || "", temas: S.topics, actualizado_at: new Date().toISOString() };

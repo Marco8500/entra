@@ -18,6 +18,11 @@ const leerBody = (req) => new Promise((r) => { let b = ""; req.on("data", (c) =>
 /* ---------------- Claude ---------------- */
 const LIMITE_RPM = +process.env.IA_LIMITE_RPM || 0, peticiones = [];
 function respuestaIA(prompt, nImgs) {
+  // Modo índice: un tema por cada línea que empieza por "Tema", "UD" o "Unidad"
+  if (prompt.includes("cada línea numerada")) {
+    const temas = [...prompt.matchAll(/^(\d+)\| ((?:Tema|UD|Unidad)\b.*)$/gim)].map((m) => ({ linea: +m[1], titulo: m[2].slice(0, 60), unidad: "", entra: /entra/i.test(m[2]) && !/no entra/i.test(m[2]) ? true : null, notas: "" }));
+    return JSON.stringify({ asignatura: "Apuntes de prueba", temas });
+  }
   if (prompt.includes("lector de apuntes")) {
     return JSON.stringify({
       asignatura: "PRL · Unidades 1 y 2",
