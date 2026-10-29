@@ -1,0 +1,271 @@
+<title>Memoria de Entra</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: como la vista de gráfico de Obsidian. Lista y buscador a la izquierda, gráfico a la derecha; en el móvil, gráfico arriba y lista debajo. */
+:root {
+  --bg: #161616; --panel: #1f1f1f; --linea: #2c2c2c; --fg: #dcdcdc; --tenue: #8a8a8a;
+  --naranja: #e8794a; --decision: #e8794a; --error: #d9625f; --entorno: #7f9fc2; --pendiente: #d9b44a;
+  --sans: "IBM Plex Sans", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.5 var(--sans); overflow: hidden; }
+.app { height: 100%; display: grid; grid-template-columns: 310px 1fr; }
+aside { background: var(--panel); border-right: 1px solid var(--linea); display: flex; flex-direction: column; min-height: 0;
+  padding-left: max(14px, env(safe-area-inset-left, 0px)); padding-right: 14px; padding-block: 14px; gap: 10px; }
+h1 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: .01em; }
+h1 span { color: var(--naranja); }
+.cuenta { font: 12px var(--mono); color: var(--tenue); font-variant-numeric: tabular-nums; }
+#buscar { width: 100%; box-sizing: border-box; background: var(--bg); border: 1px solid var(--linea); color: var(--fg);
+  border-radius: 6px; padding: 8px 10px; font: 14px var(--sans); }
+#buscar:focus { outline: 2px solid var(--naranja); outline-offset: -1px; }
+.filtros { display: flex; flex-wrap: wrap; gap: 6px; }
+.filtros button { background: transparent; color: var(--tenue); border: 1px solid var(--linea); border-radius: 999px;
+  padding: 3px 10px 3px 8px; font: 12px var(--sans); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.filtros button[aria-pressed="true"] { color: var(--fg); border-color: #444; }
+.filtros i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+ul { list-style: none; margin: 0; padding: 0; overflow-y: auto; min-height: 0; flex: 1; }
+li button { all: unset; box-sizing: border-box; width: 100%; display: flex; gap: 8px; align-items: baseline; cursor: pointer;
+  padding: 7px 6px; border-bottom: 1px solid var(--linea); font-size: 13px; color: #c8c8c8; }
+li button:hover, li button:focus-visible { background: #262626; color: #fff; }
+li button.activa { color: var(--naranja); }
+li i { width: 7px; height: 7px; border-radius: 50%; flex: none; transform: translateY(-1px); }
+.vacio { color: var(--tenue); font-size: 13px; padding: 8px 6px; }
+main { position: relative; min-width: 0; min-height: 0; }
+.barra { position: absolute; top: 0; left: 0; right: 0; padding: 10px 14px; font: 12px var(--sans); color: var(--tenue);
+  border-bottom: 1px solid var(--linea); background: var(--bg); z-index: 2; padding-right: max(14px, env(safe-area-inset-right, 0px)); }
+canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; display: block; }
+canvas.arrastrando { cursor: grabbing; }
+.zoom { position: absolute; right: max(12px, env(safe-area-inset-right, 0px)); bottom: 12px; display: flex; gap: 6px; z-index: 2; }
+.zoom button { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--linea); background: var(--panel);
+  color: var(--fg); font: 16px var(--sans); cursor: pointer; }
+.zoom button:focus-visible, .filtros button:focus-visible, .nota button:focus-visible { outline: 2px solid var(--naranja); }
+.nota { position: absolute; top: 48px; right: max(12px, env(safe-area-inset-right, 0px)); width: min(380px, calc(100% - 24px));
+  max-height: calc(100% - 110px); overflow-y: auto; background: var(--panel); border: 1px solid var(--linea); border-radius: 10px;
+  padding: 16px 18px; z-index: 3; box-shadow: 0 12px 40px rgba(0,0,0,.5); box-sizing: border-box; }
+.nota header { display: flex; justify-content: space-between; gap: 10px; align-items: start; }
+.nota h2 { margin: 0; font-size: 17px; font-weight: 600; text-wrap: balance; }
+.nota .cerrar { all: unset; cursor: pointer; color: var(--tenue); font-size: 20px; line-height: 1; padding: 0 4px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; font: 12px var(--mono); color: var(--tenue); }
+.chip { border-radius: 4px; padding: 1px 7px; color: #111; font: 500 11px var(--sans); text-transform: uppercase; letter-spacing: .06em; }
+.cuerpo p { margin: 0 0 10px; }
+.cuerpo ul { overflow: visible; margin: 0 0 10px; padding-left: 18px; list-style: disc; }
+.cuerpo li { margin-bottom: 4px; }
+.cuerpo code { font: 12.5px var(--mono); background: #2a2a2a; padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+.cuerpo strong { color: #fff; font-weight: 600; }
+.enl { all: unset; cursor: pointer; color: var(--naranja); border-bottom: 1px dotted var(--naranja); }
+.conex { border-top: 1px solid var(--linea); padding-top: 10px; margin-top: 6px; }
+.conex h3 { margin: 0 0 6px; font: 500 11px var(--sans); text-transform: uppercase; letter-spacing: .08em; color: var(--tenue); }
+.conex div { display: flex; flex-wrap: wrap; gap: 6px 12px; }
+@media (max-width: 760px) {
+  body { overflow: auto; }
+  .app { grid-template-columns: 1fr; grid-template-rows: 58vh auto; height: auto; min-height: 100%; }
+  main { order: -1; height: 58vh; }
+  aside { border-right: 0; border-top: 1px solid var(--linea); padding-right: max(14px, env(safe-area-inset-right, 0px)); }
+  ul { overflow: visible; }
+  .nota { position: fixed; top: auto; left: 0; right: 0; bottom: 0; width: 100%; max-height: 44vh; border-radius: 14px 14px 0 0;
+    padding-left: max(18px, env(safe-area-inset-left, 0px)); padding-right: max(18px, env(safe-area-inset-right, 0px));
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="app">
+  <aside>
+    <h1>Memoria de <span>Entra ✱</span></h1>
+    <div class="cuenta" id="cuenta"></div>
+    <input id="buscar" type="search" placeholder="Buscar: stripe, gemini, pdf…" aria-label="Buscar en las notas" autocomplete="off">
+    <div class="filtros" id="filtros"></div>
+    <ul id="lista"></ul>
+  </aside>
+  <main>
+    <div class="barra">Vista de gráfico · toca un punto para abrir la nota, arrastra para mover</div>
+    <canvas id="lienzo" aria-label="Gráfico de notas conectadas"></canvas>
+    <div class="zoom">
+      <button id="menos" aria-label="Alejar">−</button>
+      <button id="centrar" aria-label="Centrar">◎</button>
+      <button id="mas" aria-label="Acercar">+</button>
+    </div>
+    <article class="nota" id="nota" hidden></article>
+  </main>
+</div>
+
+<script>
+const DATOS = /*DATOS*/null;
+const TIPOS = { decision: "Decisiones", error: "Errores", entorno: "Entorno", pendiente: "Pendientes" };
+const css = getComputedStyle(document.documentElement);
+const color = t => css.getPropertyValue("--" + t).trim();
+const NARANJA = color("naranja");
+
+const notas = DATOS.notas, porId = {};
+notas.forEach((n, i) => { n.vec = new Set(); n.i = i; porId[n.id] = n; });
+DATOS.enlaces.forEach(([a, b]) => { porId[a].vec.add(b); porId[b].vec.add(a); });
+document.getElementById("cuenta").textContent = `${notas.length} notas · ${DATOS.enlaces.length} conexiones`;
+
+// ---------- estado ----------
+const activos = new Set(Object.keys(TIPOS));
+let filtro = "", seleccion = null, hover = null;
+const coincide = n => activos.has(n.tipo) && (!filtro || (n.titulo + " " + n.texto).toLowerCase().includes(filtro));
+
+// ---------- lista y filtros ----------
+const $lista = document.getElementById("lista"), $filtros = document.getElementById("filtros");
+for (const [t, nombre] of Object.entries(TIPOS)) {
+  const b = document.createElement("button");
+  b.setAttribute("aria-pressed", "true");
+  b.innerHTML = `<i style="background:${color(t)}"></i>${nombre} <span style="color:var(--tenue)">${notas.filter(n => n.tipo === t).length}</span>`;
+  b.onclick = () => { activos.has(t) ? activos.delete(t) : activos.add(t); b.setAttribute("aria-pressed", activos.has(t)); pintarLista(); };
+  $filtros.append(b);
+}
+function pintarLista() {
+  const vis = notas.filter(coincide).sort((a, b) => a.titulo.localeCompare(b.titulo, "es"));
+  $lista.innerHTML = vis.length ? "" : `<li class="vacio">Ninguna nota con «${esc(filtro)}».</li>`;
+  for (const n of vis) {
+    const li = document.createElement("li"), b = document.createElement("button");
+    b.innerHTML = `<i style="background:${color(n.tipo)}"></i><span>${esc(n.titulo)}</span>`;
+    if (seleccion === n) b.className = "activa";
+    b.onclick = () => abrir(n, true);
+    li.append(b); $lista.append(li);
+  }
+}
+document.getElementById("buscar").addEventListener("input", e => { filtro = e.target.value.trim().toLowerCase(); pintarLista(); });
+
+// ---------- nota ----------
+const $nota = document.getElementById("nota");
+function esc(s) { return s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function enLinea(s) {
+  return esc(s).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\[\[([^\]]+)\]\]/g, (_, id) => porId[id] ? `<button class="enl" data-id="${id}">${id.replace(/-/g, " ")}</button>` : id);
+}
+function markdown(t) {
+  const out = []; let lista = null;
+  for (const l of t.split("\n")) {
+    if (/^Relacionado:/.test(l)) continue;
+    const m = l.match(/^- (\[[ x]\] )?(.*)/);
+    if (m) { if (!lista) { lista = []; out.push(lista); } lista.push((m[1] ? (m[1].includes("x") ? "☑ " : "☐ ") : "") + enLinea(m[2])); continue; }
+    lista = null;
+    if (l.trim()) out.push(`<p>${enLinea(l)}</p>`);
+  }
+  return out.map(x => Array.isArray(x) ? `<ul>${x.map(i => `<li>${i}</li>`).join("")}</ul>` : x).join("");
+}
+function abrir(n, centrar) {
+  seleccion = n; pintarLista();
+  const vec = [...n.vec].map(id => porId[id]);
+  $nota.innerHTML = `<header><h2>${esc(n.titulo)}</h2><button class="cerrar" aria-label="Cerrar nota">×</button></header>
+    <div class="meta"><span class="chip" style="background:${color(n.tipo)}">${TIPOS[n.tipo].replace(/s$/, "").replace(/ne$/, "n")}</span>
+    ${n.fecha ? `<span>${n.fecha}</span>` : ""}${n.commit ? `<span>commit ${n.commit}</span>` : ""}</div>
+    <div class="cuerpo">${markdown(n.texto)}</div>
+    ${vec.length ? `<div class="conex"><h3>Conectada con ${vec.length}</h3><div>${vec.map(v => `<button class="enl" data-id="${v.id}">${esc(v.titulo)}</button>`).join("")}</div></div>` : ""}`;
+  $nota.hidden = false; $nota.scrollTop = 0;
+  $nota.querySelector(".cerrar").onclick = cerrar;
+  $nota.querySelectorAll(".enl").forEach(b => b.onclick = () => abrir(porId[b.dataset.id], true));
+  if (centrar) { vista.x = -n.x * vista.k; vista.y = -n.y * vista.k; if (matchMedia("(max-width: 760px)").matches) scrollTo({ top: 0, behavior: "smooth" }); }
+  calor = Math.max(calor, .05);
+}
+function cerrar() { seleccion = null; $nota.hidden = true; pintarLista(); }
+addEventListener("keydown", e => { if (e.key === "Escape") cerrar(); });
+
+// ---------- simulación ----------
+notas.forEach((n, i) => { const a = i * 2.39996, r = 30 + 14 * Math.sqrt(i); n.x = Math.cos(a) * r; n.y = Math.sin(a) * r; n.vx = n.vy = 0; n.r = 3.5 + Math.sqrt(n.vec.size) * 2.2; });
+let calor = 1;
+function paso() {
+  if (calor < .004) return;
+  for (let i = 0; i < notas.length; i++) for (let j = i + 1; j < notas.length; j++) {
+    const a = notas[i], b = notas[j]; let dx = a.x - b.x, dy = a.y - b.y, d2 = dx * dx + dy * dy + .01;
+    const f = 900 / d2 * calor, d = Math.sqrt(d2); dx /= d; dy /= d;
+    a.vx += dx * f; a.vy += dy * f; b.vx -= dx * f; b.vy -= dy * f;
+  }
+  for (const [ia, ib] of DATOS.enlaces) {
+    const a = porId[ia], b = porId[ib], dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1, f = (d - 55) * .03 * calor;
+    a.vx += dx / d * f; a.vy += dy / d * f; b.vx -= dx / d * f; b.vy -= dy / d * f;
+  }
+  for (const n of notas) {
+    n.vx -= n.x * .012 * calor; n.vy -= n.y * .012 * calor;
+    if (n === arrastre?.nodo) { n.vx = n.vy = 0; continue; }
+    n.x += n.vx; n.y += n.vy; n.vx *= .6; n.vy *= .6;
+  }
+  calor *= .985;
+}
+
+// ---------- dibujo ----------
+const lienzo = document.getElementById("lienzo"), ctx = lienzo.getContext("2d");
+const vista = { x: 0, y: 0, k: 1.4 };
+let W = 0, H = 0;
+function medir() {
+  const r = lienzo.getBoundingClientRect(), dpr = devicePixelRatio || 1;
+  W = r.width; H = r.height; lienzo.width = W * dpr; lienzo.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+new ResizeObserver(medir).observe(lienzo);
+const aPantalla = n => [W / 2 + vista.x + n.x * vista.k, H / 2 + vista.y + n.y * vista.k];
+function dibujar() {
+  paso();
+  ctx.clearRect(0, 0, W, H);
+  const foco = hover || seleccion, cerca = foco ? new Set([foco.id, ...foco.vec]) : null;
+  const visible = n => coincide(n);
+  ctx.lineWidth = 1;
+  for (const [ia, ib] of DATOS.enlaces) {
+    const a = porId[ia], b = porId[ib], [x1, y1] = aPantalla(a), [x2, y2] = aPantalla(b);
+    const caliente = foco && (a === foco || b === foco);
+    ctx.strokeStyle = caliente ? NARANJA : (visible(a) && visible(b) && !foco ? "rgba(200,200,200,.22)" : "rgba(200,200,200,.08)");
+    ctx.globalAlpha = caliente ? .85 : 1;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  for (const n of notas) {
+    const [x, y] = aPantalla(n), r = n.r * Math.min(1.6, Math.max(.8, vista.k * .8));
+    const apagada = !visible(n) || (cerca && !cerca.has(n.id));
+    ctx.globalAlpha = apagada ? .18 : 1;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 7);
+    ctx.fillStyle = n === foco ? NARANJA : (cerca?.has(n.id) ? NARANJA : "#d6d6d6"); ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = color(n.tipo); ctx.stroke();
+    const etiqueta = n === foco || cerca?.has(n.id) || vista.k > 2 || (n.vec.size >= 5 && !cerca) || (filtro && visible(n));
+    if (etiqueta && !apagada) {
+      ctx.font = `${n === foco ? 600 : 400} 11px "IBM Plex Sans", system-ui, sans-serif`;
+      ctx.fillStyle = n === foco ? "#fff" : "#bdbdbd"; ctx.textAlign = "center";
+      ctx.fillText(n.titulo, x, y + r + 13);
+    }
+  }
+  ctx.globalAlpha = 1;
+  requestAnimationFrame(dibujar);
+}
+
+// ---------- gestos ----------
+const punteros = new Map(); let arrastre = null, pellizco = null;
+function nodoEn(px, py) {
+  let mejor = null, md = 18;
+  for (const n of notas) { if (!coincide(n)) continue; const [x, y] = aPantalla(n), d = Math.hypot(x - px, y - py); if (d < md) { md = d; mejor = n; } }
+  return mejor;
+}
+const local = e => { const r = lienzo.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+lienzo.addEventListener("pointerdown", e => {
+  lienzo.setPointerCapture(e.pointerId); punteros.set(e.pointerId, local(e));
+  if (punteros.size === 2) { const [a, b] = [...punteros.values()]; pellizco = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), k: vista.k }; arrastre = null; return; }
+  const [px, py] = local(e), nodo = nodoEn(px, py);
+  arrastre = { nodo, px, py, vx: vista.x, vy: vista.y, movido: false };
+  lienzo.classList.add("arrastrando");
+});
+lienzo.addEventListener("pointermove", e => {
+  const [px, py] = local(e);
+  if (punteros.has(e.pointerId)) punteros.set(e.pointerId, [px, py]);
+  if (pellizco && punteros.size === 2) { const [a, b] = [...punteros.values()]; zoomA(pellizco.k * Math.hypot(a[0] - b[0], a[1] - b[1]) / pellizco.d); return; }
+  if (!arrastre) { if (e.pointerType === "mouse") hover = nodoEn(px, py); return; }
+  if (Math.hypot(px - arrastre.px, py - arrastre.py) > 4) arrastre.movido = true;
+  if (arrastre.nodo) { arrastre.nodo.x = (px - W / 2 - vista.x) / vista.k; arrastre.nodo.y = (py - H / 2 - vista.y) / vista.k; calor = Math.max(calor, .3); }
+  else { vista.x = arrastre.vx + px - arrastre.px; vista.y = arrastre.vy + py - arrastre.py; }
+});
+function soltar(e) {
+  punteros.delete(e.pointerId);
+  if (punteros.size < 2) pellizco = null;
+  if (arrastre && !arrastre.movido) arrastre.nodo ? abrir(arrastre.nodo, false) : cerrar();
+  arrastre = null; lienzo.classList.remove("arrastrando");
+}
+lienzo.addEventListener("pointerup", soltar); lienzo.addEventListener("pointercancel", soltar);
+lienzo.addEventListener("pointerleave", () => { hover = null; });
+function zoomA(k) { const nk = Math.min(5, Math.max(.4, k)); vista.x *= nk / vista.k; vista.y *= nk / vista.k; vista.k = nk; }
+lienzo.addEventListener("wheel", e => { e.preventDefault(); zoomA(vista.k * Math.exp(-e.deltaY * .0015)); }, { passive: false });
+document.getElementById("mas").onclick = () => zoomA(vista.k * 1.3);
+document.getElementById("menos").onclick = () => zoomA(vista.k / 1.3);
+document.getElementById("centrar").onclick = () => { vista.x = vista.y = 0; vista.k = 1.4; };
+
+pintarLista(); medir(); requestAnimationFrame(dibujar);
+</script>
