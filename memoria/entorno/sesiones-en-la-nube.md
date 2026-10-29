@@ -10,4 +10,4 @@ Las sesiones de Claude en la nube empiezan con el contenedor limpio y se borran 
 - Por eso existe esta carpeta `memoria/`: es lo único que la siguiente sesión va a recordar.
 - Tras reiniciarse el contenedor hay que volver a levantar Docker, Supabase, el simulador y wrangler.
 
-Relacionado: [[red-bloqueada]] · [[pruebas]]
+Relacionado: [[red-bloqueada]] · [[pruebas]] · [[sesiones-principales]]
