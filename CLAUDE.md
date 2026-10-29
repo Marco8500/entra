@@ -4,6 +4,8 @@ Web de simulacros de examen a partir de los apuntes del alumno (fotos, PDF o tex
 
 Producción: Cloudflare Worker `entra` (`entraia.workers.dev`). Cada push a `main` despliega solo.
 
+Sesiones principales: **Entra AI** (código) e **Instagram ENTRA** (contenido de redes). Ver `memoria/entorno/sesiones-principales.md`.
+
 ## Memoria (leer antes de empezar)
 
 Las sesiones en la nube empiezan de cero: lo único que se recuerda entre sesiones es lo que está en git. La memoria del proyecto está en [`memoria/`](memoria/README.md).
