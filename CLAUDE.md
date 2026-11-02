@@ -2,7 +2,7 @@
 
 Web de simulacros de examen a partir de los apuntes del alumno (fotos, PDF o texto). Público: estudiantes en España. Gratis con límites, Pro 3,99 €/mes o pase de examen de 7 días por 1,99 €.
 
-Producción: Cloudflare Worker `entra` (`entraia.workers.dev`). Cada push a `main` despliega solo.
+Producción: Cloudflare Worker `entra` (`entra.entraia.workers.dev`). Cada push a `main` despliega solo.
 
 ## Memoria (leer antes de empezar)
 

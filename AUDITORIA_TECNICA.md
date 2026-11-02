@@ -38,7 +38,7 @@ Navegador (public/: index.html, app.html, assets/app.js de una sola pieza, sin f
    │  supabase-js 2.45.4 (CDN) → Supabase Auth + tablas con RLS (apuntes, simulacros, examenes…)
    │  fetch /api/* (JSON o texto en streaming)
    ▼
-Cloudflare Worker "entra" (worker.js) → entraia.workers.dev
+Cloudflare Worker "entra" (worker.js) → entra.entraia.workers.dev
    ├─ /api/* → netlify/functions/*.mjs (formato Request→Response, heredado de Netlify)
    │     ├─ netlify/lib/entra.mjs: autenticación, límites, cadena de IAs (streamIA), Stripe
    │     ├─ IA: Groq → Groq visión → Gemini → Workers AI (Mistral y Anthropic solo si tienen clave)
@@ -103,7 +103,7 @@ Causas raíz confirmadas leyendo el código y, cuando se pudo, reproduciendo el 
 
 ### Problemas que no se han podido confirmar
 
-- **Lentitud real en producción**: no se ha podido medir. Desde este entorno no hay acceso a `entraia.workers.dev`, a la API de Cloudflare, a Groq ni a Stripe (bloqueo de red del contenedor).
+- **Lentitud real en producción**: no se ha podido medir. Desde este entorno no hay acceso a `entra.entraia.workers.dev`, a la API de Cloudflare, a Groq ni a Stripe (bloqueo de red del contenedor).
   - La tabla `ia_errores` de producción tenía 0 filas al empezar, así que tampoco hay datos reales de tiempos de las IAs todavía.
 - **Calidad real de lectura y corrección de cada IA**: depende de los modelos externos; aquí solo se prueba con respuestas simuladas.
 
@@ -180,7 +180,7 @@ Causas raíz confirmadas leyendo el código y, cuando se pudo, reproduciendo el 
 | **Stripe** (Checkout integrado, webhook, portal) | Firma (`constructEventAsync`), idempotencia del pase, modos test/live según la clave, errores | **[mock]** y **[local]**: suscripción, pase, portal, firma falsa (400), BD caída (500), 5 avisos simultáneos (1 pase) | **No probado contra Stripe real** (red bloqueada aquí). Recomendado: una compra real de 1,99 € y, en el panel de Stripe → Webhooks, comprobar que el endpoint responde 200. |
 | **IAs** (Groq, Gemini, Workers AI) | Cadena con salto al siguiente proveedor, enfriamiento, validación de JSON, registro, keepalive cada 8 s, tiempo máximo de 25 s por proveedor | **[mock]**: unitarias (503 → siguiente; respuesta cortada → siguiente; todas fallan → `[[ERROR]]`) y flujos | **No probadas contra los servicios reales** desde aquí. Cupos gratuitos: si todos se agotan, el alumno ve "Hoy se ha agotado la IA gratuita". |
 | **Make** (tutor del chat) | Tiempo máximo 40 s, escenario apagado ("Accepted"), límite de mensajes | **[mock]**: `flujo-perfil-chat.cjs` | No probado contra Make real en esta auditoría. |
-| **Cloudflare Workers** (despliegue, assets, `[ai]`, observabilidad) | `wrangler.toml`, `worker.js`, `_headers`, build | `wrangler deploy --dry-run` OK | **Sin acceso** a la API de Cloudflare ni a `entraia.workers.dev` desde este entorno: no se han visto logs, métricas ni el estado del despliegue. El plan gratuito limita la CPU a 10 ms por petición; el streaming espera a la red y no gasta CPU, pero conviene vigilar "Exceeded CPU" en los logs. |
+| **Cloudflare Workers** (despliegue, assets, `[ai]`, observabilidad) | `wrangler.toml`, `worker.js`, `_headers`, build | `wrangler deploy --dry-run` OK | **Sin acceso** a la API de Cloudflare ni a `entra.entraia.workers.dev` desde este entorno: no se han visto logs, métricas ni el estado del despliegue. El plan gratuito limita la CPU a 10 ms por petición; el streaming espera a la red y no gasta CPU, pero conviene vigilar "Exceeded CPU" en los logs. |
 | **CDN** (supabase-js en jsdelivr, pdf.js y jsPDF en cdnjs) | Versiones fijadas | En las pruebas se sirven desde node_modules | Sin SRI (`integrity`). Recomendado añadirlo o servirlos desde `public/`. |
 
 **Necesita acceso o intervención manual**
@@ -288,7 +288,7 @@ Causas raíz confirmadas leyendo el código y, cuando se pudo, reproduciendo el 
 
 **No se ha podido verificar**
 
-- Comportamiento y tiempos reales en `entraia.workers.dev`.
+- Comportamiento y tiempos reales en `entra.entraia.workers.dev`.
 - Respuestas reales de Groq, Gemini, Workers AI y Make.
 - Pago real con Stripe live.
 - Logs de Cloudflare.
