@@ -142,3 +142,15 @@ test("/api/estado dice qué falta sin enseñar ninguna clave", async () => {
   assert.ok(d.ias.includes("groq") && !d.ias.includes("gemini"));
   for (const v of [ENV.SUPABASE_SERVICE_ROLE_KEY, ENV.STRIPE_SECRET_KEY, ENV.STRIPE_WEBHOOK_SECRET]) assert.ok(!txt.includes(v));
 });
+
+test("claves con los nombres del panel (GROK_KEY, Gemini_API_Key) también valen", async () => {
+  globalThis.__ENTRA_ENV = { ...ENV, GROQ_API_KEY: undefined, GEMINI_API_KEY: undefined, GROK_KEY: "g2", Gemini_API_Key: "m2" };
+  assert.equal(lib.clave("GROQ_API_KEY"), "g2");
+  assert.equal(lib.clave("GEMINI_API_KEY"), "m2");
+  assert.ok(lib.iasConfiguradas().includes("groq") && lib.iasConfiguradas().includes("gemini"));
+  const estado = (await import("../../netlify/functions/estado.mjs")).default;
+  const d = await (await estado(new Request("http://x/api/estado"))).json();
+  assert.deepEqual(d.faltan, []);
+  globalThis.__ENTRA_ENV = { ...ENV, GROQ_API_KEY: undefined, GEMINI_API_KEY: undefined };
+  assert.equal(lib.clave("GROQ_API_KEY"), undefined);
+});

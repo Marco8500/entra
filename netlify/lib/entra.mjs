@@ -20,6 +20,14 @@ export function enSegundoPlano(p) {
   if (ctx?.waitUntil) ctx.waitUntil(seguro);
   return seguro;
 }
+// Nombres alternativos de las claves: en el panel de Cloudflare se pusieron como GROK_KEY y Gemini_API_Key
+const ALIAS = {
+  GROQ_API_KEY: ["GROQ_KEY", "GROK_KEY", "GROK_API_KEY", "Groq_API_Key"],
+  GEMINI_API_KEY: ["GEMINI_KEY", "Gemini_API_Key", "GOOGLE_API_KEY"],
+  MAKE_CHAT_URL: ["MAKE_URL", "MAKE_WEBHOOK_URL"],
+};
+/** Valor de una clave buscando también por sus nombres alternativos */
+export const clave = (k) => env(k) || (ALIAS[k] || []).map(env).find(Boolean);
 const lista = (v) => (v || "").split(",").map((x) => x.trim()).filter(Boolean);
 
 // Modelo "normal" (leer apuntes, examen) o "rápido" (corregir, repaso)
@@ -36,12 +44,12 @@ function proveedores() {
     mistral: { url: env("MISTRAL_API_URL") || "https://api.mistral.ai/v1", clave: env("MISTRAL_API_KEY"), vision: true, imagenComoTexto: true,
       normal: lista(env("MISTRAL_MODELOS") || "mistral-medium-latest,mistral-small-latest"),
       rapido: lista(env("MISTRAL_MODELOS_RAPIDO") || "mistral-small-latest") },
-    groq: { url: env("GROQ_API_URL") || "https://api.groq.com/openai/v1", clave: env("GROQ_API_KEY"), vision: false, razonamiento: "low",
+    groq: { url: env("GROQ_API_URL") || "https://api.groq.com/openai/v1", clave: clave("GROQ_API_KEY"), vision: false, razonamiento: "low",
       normal: lista(env("GROQ_MODELOS") || "openai/gpt-oss-120b"),
       rapido: lista(env("GROQ_MODELOS_RAPIDO") || "openai/gpt-oss-20b,openai/gpt-oss-120b") },
-    groqVision: { url: env("GROQ_API_URL") || "https://api.groq.com/openai/v1", clave: env("GROQ_API_KEY"), vision: true, soloFotos: true,
+    groqVision: { url: env("GROQ_API_URL") || "https://api.groq.com/openai/v1", clave: clave("GROQ_API_KEY"), vision: true, soloFotos: true,
       normal: lista(env("GROQ_MODELOS_VISION") || "meta-llama/llama-4-scout-17b-16e-instruct"), rapido: [] },
-    gemini: { url: env("GEMINI_API_URL") || "https://generativelanguage.googleapis.com/v1beta/openai", clave: env("GEMINI_API_KEY"), vision: true,
+    gemini: { url: env("GEMINI_API_URL") || "https://generativelanguage.googleapis.com/v1beta/openai", clave: clave("GEMINI_API_KEY"), vision: true,
       razonamiento: env("IA_RAZONAMIENTO") ?? "low",
       normal: lista(env("GEMINI_MODELOS") || "gemini-3.5-flash,gemini-3-flash-preview,gemini-flash-lite-latest"),
       rapido: lista(env("GEMINI_MODELOS_RAPIDO") || "gemini-flash-lite-latest,gemini-3.1-flash-lite") },
