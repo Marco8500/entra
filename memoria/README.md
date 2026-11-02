@@ -20,6 +20,7 @@ Se puede abrir esta carpeta como bóveda de **Obsidian** para ver el gráfico.
 - [[tutor-chat-con-make]] — El tutor por chat reenvía a un escenario de Make (`MAKE_CHAT_URL`) con los apuntes del alumno como contexto.
 
 ## Errores resueltos (no repetirlos)
+- [[claves-borradas-al-desplegar]] — Cada push borraba las claves de Groq y Gemini puestas como "Text" en Cloudflare: solo quedaba Workers AI y fallaba 9 de cada 10.
 - [[5xx-no-es-ia-saturada]] — `api()` convertía cualquier 5xx en "La IA está saturada", también en pago, borrar cuenta o chat, y no tenía…
 - [[cache-de-assets]] — El navegador se quedaba con una versión vieja de `app.js` tras desplegar.
 - [[cliente-stripe-de-otro-modo]] — Al pasar de test a live, el `customer` de Stripe guardado en el perfil era del otro modo y el pago fallaba.
