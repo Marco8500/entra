@@ -3,6 +3,9 @@ name = "entra"
 main = "worker.js"
 compatibility_date = "2026-06-01"
 compatibility_flags = ["nodejs_compat"]
+# Sin esto, cada despliegue (cada push) BORRA las variables puestas a mano en el panel de Cloudflare.
+# Así se perdieron las claves de Groq y Gemini y solo quedaba la IA de Cloudflare.
+keep_vars = true
 
 [assets]
 directory = "public"

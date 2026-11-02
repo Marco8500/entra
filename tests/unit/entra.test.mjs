@@ -116,3 +116,29 @@ test("webhook: pase pagado → activa 7 días y responde 200", async () => {
   const c = llamadas.find((x) => x.u.endsWith("/rpc/activar_pase"));
   assert.deepEqual(JSON.parse(c.body), { p_user: "u1", p_session: "cs_2", p_dias: 7 });
 });
+
+test("Workers AI: texto con gpt-oss-120b (luego llama-3.3-70b); fotos solo con llama-4-scout", async () => {
+  globalThis.__ENTRA_ENV = { ...ENV, IA_ORDEN: "cloudflare,cloudflareVision", GROQ_API_KEY: "", GEMINI_API_KEY: "" };
+  const pedidos = [];
+  const respuesta = (t) => new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ response: t })}\n\ndata: [DONE]\n\n`)); c.close() } });
+  globalThis.__ENTRA_AI = { run: async (m) => { pedidos.push(m); if (m.includes("gpt-oss")) throw new Error("429 capacity"); return respuesta('{"ok":1}') } };
+  try {
+    assert.deepEqual(lib.iasConfiguradas(), ["cloudflare", "cloudflareVision"]);
+    assert.equal(await leer(lib.streamIA({ content: [{ type: "text", text: "x" }], ruta: "cf-texto" })), '{"ok":1}');
+    assert.deepEqual(pedidos, ["@cf/openai/gpt-oss-120b", "@cf/meta/llama-3.3-70b-instruct-fp8-fast"]);
+    pedidos.length = 0;
+    const foto = { type: "image", source: { media_type: "image/jpeg", data: "AAAA" } };
+    assert.equal(await leer(lib.streamIA({ content: [foto, { type: "text", text: "x" }], ruta: "cf-foto" })), '{"ok":1}');
+    assert.deepEqual(pedidos, ["@cf/meta/llama-4-scout-17b-16e-instruct"]);
+  } finally { globalThis.__ENTRA_AI = undefined }
+});
+
+test("/api/estado dice qué falta sin enseñar ninguna clave", async () => {
+  globalThis.__ENTRA_ENV = { ...ENV, GEMINI_API_KEY: "" };
+  const estado = (await import("../../netlify/functions/estado.mjs")).default;
+  const r = await estado(new Request("http://x/api/estado"));
+  const txt = await r.text(), d = JSON.parse(txt);
+  assert.deepEqual(d.faltan, ["GEMINI_API_KEY"]);
+  assert.ok(d.ias.includes("groq") && !d.ias.includes("gemini"));
+  for (const v of [ENV.SUPABASE_SERVICE_ROLE_KEY, ENV.STRIPE_SECRET_KEY, ENV.STRIPE_WEBHOOK_SECRET]) assert.ok(!txt.includes(v));
+});

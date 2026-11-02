@@ -46,15 +46,22 @@ function proveedores() {
       normal: lista(env("GEMINI_MODELOS") || "gemini-3.5-flash,gemini-3-flash-preview,gemini-flash-lite-latest"),
       rapido: lista(env("GEMINI_MODELOS_RAPIDO") || "gemini-flash-lite-latest,gemini-3.1-flash-lite") },
     // IA de Cloudflare (Workers AI): sin clave, va por el enlace "AI" del proyecto. 10.000 "neuronas" gratis al día.
-    cloudflare: { workersAI: globalThis.__ENTRA_AI, clave: globalThis.__ENTRA_AI ? "enlace" : "", vision: true,
-      normal: lista(env("CF_MODELOS") || "@cf/meta/llama-4-scout-17b-16e-instruct"),
-      rapido: lista(env("CF_MODELOS_RAPIDO") || "@cf/meta/llama-4-scout-17b-16e-instruct") },
+    // gpt-oss-120b (el mismo modelo que Groq) y llama-3.3-70b devuelven JSON mucho más fiable que llama-4-scout,
+    // que en producción fallaba 9 de cada 10 veces leyendo apuntes. Scout solo para fotos (es el único con visión).
+    cloudflare: { workersAI: globalThis.__ENTRA_AI, clave: globalThis.__ENTRA_AI ? "enlace" : "", vision: false,
+      normal: lista(env("CF_MODELOS") || "@cf/openai/gpt-oss-120b,@cf/meta/llama-3.3-70b-instruct-fp8-fast"),
+      rapido: lista(env("CF_MODELOS_RAPIDO") || "@cf/openai/gpt-oss-120b,@cf/meta/llama-3.3-70b-instruct-fp8-fast") },
+    cloudflareVision: { workersAI: globalThis.__ENTRA_AI, clave: globalThis.__ENTRA_AI ? "enlace" : "", vision: true, soloFotos: true,
+      normal: lista(env("CF_MODELOS_VISION") || "@cf/meta/llama-4-scout-17b-16e-instruct"), rapido: [] },
     anthropic: { anthropic: true, url: env("ANTHROPIC_API_URL") || "https://api.anthropic.com", clave: env("ANTHROPIC_API_KEY"), vision: true,
       normal: lista(env("ANTHROPIC_MODEL") || "claude-sonnet-5-5"), rapido: lista(env("ANTHROPIC_MODEL_FAST") || "claude-haiku-5-5") },
   };
-  const orden = lista(env("IA_ORDEN") || "mistral,groq,groqVision,gemini,cloudflare,anthropic");
+  const orden = lista(env("IA_ORDEN") || "mistral,groq,groqVision,gemini,cloudflare,cloudflareVision,anthropic");
   return orden.map((n) => todos[n] && { nombre: n, ...todos[n] }).filter((p) => p && p.clave);
 }
+
+/** Qué IAs tienen clave configurada (solo nombres, nunca las claves): para /api/estado */
+export const iasConfiguradas = () => proveedores().map((p) => p.nombre);
 
 // Proveedores/modelos que acaban de dar 429/503: se saltan un rato para no perder tiempo con ellos
 const enfriando = new Map();

@@ -1,5 +1,23 @@
 # Auditoría técnica de Entra — 29 de octubre de 2026
 
+> **Actualización 2 de noviembre: causa real de "siempre falla" en producción.**
+> La tabla `ia_errores` de producción muestra que desde el 31 de octubre **solo se ha usado la IA de Cloudflare**:
+> 33 intentos, 30 fallidos (91 %), casi todos con respuestas JSON rotas o cortadas de `llama-4-scout`.
+> Groq y Gemini no aparecen ni una vez, así que el Worker no tiene sus claves.
+>
+> Causa más probable, según la documentación de Cloudflare: `wrangler deploy` (cada push) **borra las variables
+> del panel de tipo "Text"**; solo conserva las de tipo "Secret". La confirmación final requiere mirar el panel.
+>
+> Arreglos:
+> - `keep_vars = true` en `wrangler.toml`.
+> - Nueva página `/api/estado`, que dice qué claves faltan sin mostrarlas.
+> - Workers AI usa `gpt-oss-120b` y `llama-3.3-70b` para texto, y `llama-4-scout` solo para fotos.
+>
+> Pruebas: unitarias 12/12, e2e 14/14.
+>
+> **Acción manual imprescindible**: volver a poner `GROQ_API_KEY` y `GEMINI_API_KEY` como tipo **Secret** en
+> Cloudflare → Workers → entra → Settings → Variables and Secrets.
+
 Informe de la auditoría y reparación. Todo lo que aparece como "verificado" se ha comprobado con una prueba que se indica; lo que no se ha podido comprobar se dice expresamente. Este informe no contiene secretos.
 
 **Tipos de prueba usados en este informe**

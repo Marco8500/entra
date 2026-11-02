@@ -4,6 +4,7 @@ import borrar from "./netlify/functions/borrar.mjs";
 import chat from "./netlify/functions/chat.mjs";
 import corregir from "./netlify/functions/corregir.mjs";
 import cuenta from "./netlify/functions/cuenta.mjs";
+import estado from "./netlify/functions/estado.mjs";
 import examen from "./netlify/functions/examen.mjs";
 import leer from "./netlify/functions/leer.mjs";
 import pago from "./netlify/functions/pago.mjs";
@@ -13,7 +14,7 @@ import stripeWebhook from "./netlify/functions/stripe-webhook.mjs";
 import { peticion } from "./netlify/lib/entra.mjs";
 
 const API = {
-  "/api/borrar": borrar, "/api/chat": chat, "/api/corregir": corregir, "/api/cuenta": cuenta,
+  "/api/borrar": borrar, "/api/chat": chat, "/api/corregir": corregir, "/api/cuenta": cuenta, "/api/estado": estado,
   "/api/examen": examen, "/api/leer": leer, "/api/pago": pago, "/api/ranking": ranking, "/api/repaso": repaso,
   "/api/stripe-webhook": stripeWebhook,
 };
