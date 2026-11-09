@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<!-- Vídeo promocional de Entra (TikTok, 1080×1920). Se graba con dev/video/grabar.cjs: window.pintar(t) dibuja el segundo t. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=Caveat:wght@600;700&display=swap">
+<style>
+:root{--paper:#f7f8fb;--sheet:#fff;--ink:#16213d;--ink2:#4a5677;--rule:#dfe5f1;--margin:#e5484d;--blue:#2346c8;--hl:#ffe14a;--ok:#1f8a4c;--oks:#e3f4ea}
+*{box-sizing:border-box;margin:0}
+html,body{width:1080px;height:1920px;overflow:hidden;background:var(--paper)}
+body{font-family:"Atkinson Hyperlegible",sans-serif;color:var(--ink);position:relative}
+.capa{position:absolute;inset:0;will-change:transform,opacity}
+.d{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.03em;line-height:1.02}
+.mano{font-family:Caveat,cursive;font-weight:700}
+.hl{background:linear-gradient(transparent 55%,var(--hl) 55% 92%,transparent 92%)}
+/* fondo: pauta de cuaderno que se mueve despacio */
+#pauta{background-image:repeating-linear-gradient(transparent 0 79px,#e7ecf6 79px 81px)}
+#margen{position:absolute;left:120px;top:0;bottom:0;width:4px;background:var(--margin);opacity:.35}
+/* textos grandes */
+.titulo{position:absolute;left:0;right:0;text-align:center;font-size:118px;padding:0 70px}
+.palabra{display:inline-block}
+/* móvil */
+#movil{position:absolute;left:190px;top:520px;width:700px;height:1300px;border-radius:90px;background:#0f1730;padding:26px;box-shadow:0 60px 120px rgba(22,33,61,.28)}
+#pantalla{position:relative;width:100%;height:100%;border-radius:66px;background:var(--paper);overflow:hidden}
+#isla{position:absolute;left:50%;top:22px;width:190px;height:50px;border-radius:30px;background:#0f1730;transform:translateX(-50%);z-index:9}
+.app{position:absolute;inset:0;padding:120px 46px 40px}
+.barra{display:flex;align-items:center;justify-content:space-between;margin-bottom:34px}
+.logo{font-family:"Bricolage Grotesque";font-weight:800;font-size:46px;display:flex;align-items:flex-start;gap:6px}
+.ast{display:inline-block;width:34px;height:34px;background:var(--margin);-webkit-mask:url(asterisco.svg) center/contain no-repeat;mask:url(asterisco.svg) center/contain no-repeat}
+.eti{font-size:24px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:var(--ink2)}
+.hoja{position:relative;background:#fff;border:2px solid var(--rule);border-radius:30px;padding:34px 30px 34px 58px;overflow:hidden}
+.hoja::before{content:"";position:absolute;left:30px;top:0;bottom:0;width:4px;background:var(--margin);opacity:.55}
+.linea{font-family:Caveat;font-weight:700;font-size:50px;line-height:76px;border-bottom:2px solid #e7ecf6;position:relative;white-space:nowrap}
+.marcador{position:absolute;left:-6px;top:20px;height:44px;background:var(--hl);border-radius:8px;z-index:0;width:0}
+.linea span{position:relative;z-index:1}
+.tachon{position:absolute;left:0;top:38px;height:5px;background:var(--margin);border-radius:3px;width:0}
+.sello{position:absolute;font-family:Caveat;font-weight:700;border-radius:14px;padding:0 18px;white-space:nowrap}
+.sello.si{background:var(--hl);color:#3d3300;font-size:48px}
+.sello.no{border:5px solid var(--margin);color:var(--margin);font-size:44px;background:#fff}
+.pregunta{font-family:"Bricolage Grotesque";font-weight:700;font-size:50px;line-height:1.15;margin:20px 0 34px}
+.op{border:3px solid var(--rule);border-radius:26px;padding:26px 30px;font-size:42px;margin-bottom:20px;background:#fff;display:flex;gap:18px;align-items:center}
+.op b{color:var(--ink2)}
+.op.bien{border-color:var(--ok);background:var(--oks)}
+.dedo{position:absolute;width:120px;height:120px;border-radius:50%;background:rgba(35,70,200,.22);border:6px solid rgba(35,70,200,.55)}
+.nota{text-align:center;padding-top:60px}
+.nota .num{font-family:"Bricolage Grotesque";font-weight:800;font-size:260px;line-height:1;letter-spacing:-.04em}
+.nota .num small{font-size:90px;color:var(--ink2)}
+.nota .sel{display:inline-block;font-family:Caveat;font-weight:700;font-size:96px;color:var(--ok);border:8px solid var(--ok);border-radius:24px;padding:0 34px;margin-top:30px}
+.repasa{margin-top:60px;font-size:40px;color:var(--ink2)}
+.repasa b{color:var(--ink)}
+.resumen{margin-top:40px;background:#fff;border:3px solid var(--ok);border-radius:28px;padding:30px 34px;font-size:40px;color:var(--ink2)}
+.resumen b{color:var(--ok);font-size:46px}
+.flash{position:absolute;inset:0;background:#fff}
+.chip{display:inline-block;font-size:44px;font-weight:700;background:#fff;border:3px solid var(--rule);border-radius:99px;padding:18px 36px;margin:10px}
+</style>
+</head>
+<body>
+<div class="capa" id="pauta"><div id="margen"></div></div>
+
+<!-- 1. gancho -->
+<div class="capa" id="e1">
+  <div class="titulo d" style="top:640px"><span class="palabra" id="w1">¿Examen</span> <span class="palabra" id="w2">mañana?</span></div>
+  <div class="titulo" style="top:900px;font-size:200px" id="cara">😰</div>
+  <div class="titulo d" style="top:1200px;font-size:84px;color:var(--ink2)" id="w3">y no sabes si te lo sabes…</div>
+</div>
+
+<!-- 2-5. texto de arriba + móvil -->
+<div class="capa" id="e2">
+  <div class="titulo d" style="top:150px;font-size:96px" id="t2"></div>
+  <div id="movil">
+    <div id="pantalla">
+      <div id="isla"></div>
+      <!-- apuntes -->
+      <div class="app" id="sApuntes">
+        <div class="barra"><span class="logo">Entra <span class="ast"></span></span><span class="eti" id="leyendo">Tus apuntes</span></div>
+        <div class="hoja">
+          <div class="eti" style="margin-bottom:14px">PRL · Unidad 3</div>
+          <div class="linea"><div class="marcador" id="m1"></div><span>El ruido continuo se mide</span></div>
+          <div class="linea"><div class="marcador" id="m2"></div><span>con el sonómetro.</span></div>
+          <div class="linea"><div class="marcador" id="m3"></div><span>El discontinuo, con el</span></div>
+          <div class="linea"><div class="marcador" id="m4"></div><span>dosímetro.</span></div>
+          <div class="linea" style="color:var(--ink2)"><span>Historia del…</span><div class="tachon" id="tc1"></div></div>
+          <div class="linea" style="color:var(--ink2);border:0"><span>(1923…)</span><div class="tachon" id="tc2"></div></div>
+          <div class="sello si" id="sSi" style="right:22px;top:18px">✱ entra</div>
+          <div class="sello no" id="sNo" style="right:22px;top:410px">no entra</div>
+        </div>
+        <div class="resumen" id="resumen"><b>✓ 3 temas encontrados</b><br>2 entran en tu examen</div>
+        <div class="flash" id="flash"></div>
+      </div>
+      <!-- examen -->
+      <div class="app" id="sExamen">
+        <div class="barra"><span class="eti">Pregunta 3 de 20</span><span class="eti" id="reloj">⏱ 14:32</span></div>
+        <div class="pregunta">¿Con qué aparato se mide el ruido discontinuo?</div>
+        <div class="op" id="o1"><b>a)</b> Sonómetro</div>
+        <div class="op" id="o2"><b>b)</b> Dosímetro</div>
+        <div class="op" id="o3"><b>c)</b> Luxómetro</div>
+        <div class="dedo" id="dedo"></div>
+      </div>
+      <!-- nota -->
+      <div class="app" id="sNota">
+        <div class="eti" style="text-align:center">Tu nota</div>
+        <div class="nota"><div class="num"><span id="numero">0,0</span><small>/10</small></div><div class="sel" id="selNota">Notable</div>
+        <div class="repasa" id="repasa">Repasa: <b>2 temas</b><br>📄 hoja de repaso + vídeos</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 6. cierre -->
+<div class="capa" id="e6" style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:50px">
+  <div class="d" style="font-size:190px;display:flex;align-items:flex-start;gap:16px" id="logoFin">Entra <span class="ast" style="width:130px;height:130px"></span></div>
+  <div class="d" style="font-size:96px;padding:0 80px" id="lemaFin">Tus apuntes se convierten en <span class="hl">tu examen</span></div>
+  <div id="chipsFin"><span class="chip">📷 Foto</span><span class="chip">📝 Examen</span><span class="chip">✅ Nota</span></div>
+  <div style="font-size:52px;font-weight:700;background:var(--blue);color:#fff;border-radius:30px;padding:34px 60px" id="ctaFin">Pruébalo gratis 👉 link en la bio</div>
+</div>
+
+<script>
+// ---------- utilidades de animación (todo depende solo de t: se puede grabar fotograma a fotograma) ----------
+const $ = (id) => document.getElementById(id);
+const cl = (x) => Math.max(0, Math.min(1, x));
+const p = (t, a, b) => cl((t - a) / (b - a));                 // progreso 0→1 entre a y b
+const easeOut = (x) => 1 - Math.pow(1 - x, 3);
+const easeInOut = (x) => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const back = (x) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2) };
+const pop = (el, t, a, d = .35) => { const k = p(t, a, a + d); el.style.opacity = k > 0 ? 1 : 0; el.style.transform = `scale(${k > 0 ? .4 + .6 * back(k) : .4})` };
+const sube = (el, t, a, d = .45, dist = 80) => { const k = easeOut(p(t, a, a + d)); el.style.opacity = k; el.style.transform = `translateY(${(1 - k) * dist}px)` };
+const vis = (el, t, a, b) => { const k = Math.min(p(t, a, a + .25), 1 - p(t, b - .25, b)); el.style.opacity = k; return k };
+const textos = [[2.0, "Haz una foto a tus apuntes"], [4.2, "Entra separa lo que <span class='hl'>entra</span>"], [6.6, "Te hace el examen"], [9.6, "Y te pone <span class='hl'>nota</span>"]];
+
+window.DURACION = 15;
+window.pintar = function (t) {
+  $("pauta").style.backgroundPosition = `0 ${-t * 30}px`;
+
+  // 1. gancho (0 – 2,1 s)
+  const e1 = vis($("e1"), t, 0, 2.1); $("e1").style.opacity = t < .25 ? 1 : e1;
+  pop($("w1"), t, .05); pop($("w2"), t, .35); pop($("cara"), t, .7, .4);
+  $("cara").style.transform += ` rotate(${Math.sin(t * 18) * 6 * (t > 1.1 && t < 2 ? 1 : 0)}deg)`;
+  sube($("w3"), t, 1.1);
+
+  // 2-5. móvil (2 – 12,4 s)
+  const e2 = $("e2"); e2.style.opacity = Math.min(p(t, 1.9, 2.15), 1 - p(t, 12.1, 12.4));
+  const entra = easeOut(p(t, 1.9, 2.6)), sale = easeInOut(p(t, 12.0, 12.4));
+  $("movil").style.transform = `translateY(${(1 - entra) * 900 - sale * 200}px) rotate(${(1 - entra) * 8}deg) scale(${1 - sale * .1})`;
+  // texto de arriba: el último que toca
+  let actual = textos.filter(([a]) => t >= a).pop();
+  if (actual) { const k = p(t, actual[0], actual[0] + .4); $("t2").innerHTML = actual[1]; $("t2").style.opacity = easeOut(k); $("t2").style.transform = `translateY(${(1 - easeOut(k)) * 50}px)` }
+
+  // pantallas
+  const apuntes = 1 - p(t, 6.4, 6.7), examen = Math.min(p(t, 6.4, 6.7), 1 - p(t, 9.3, 9.6)), nota = p(t, 9.3, 9.6);
+  $("sApuntes").style.opacity = apuntes; $("sApuntes").style.transform = `translateX(${-(1 - apuntes) * 120}px)`;
+  $("sExamen").style.opacity = examen; $("sExamen").style.transform = `translateX(${(t < 8 ? 1 - examen : -(1 - examen)) * 120}px)`;
+  $("sNota").style.opacity = nota; $("sNota").style.transform = `scale(${.9 + .1 * easeOut(nota)})`;
+
+  // foto: destello
+  $("flash").style.opacity = t > 3.0 && t < 3.6 ? 1 - p(t, 3.05, 3.6) : 0;
+  $("leyendo").textContent = t < 4.2 ? "Tus apuntes" : t < 6.3 ? "Leyendo…" : "Listo ✓";
+  // subrayador y tachones
+  // el subrayado mide lo mismo que el texto de su línea
+  [["m1", 4.5], ["m2", 4.8], ["m3", 5.1], ["m4", 5.4]].forEach(([id, a]) => { const w = $(id).nextElementSibling.offsetWidth + 14; $(id).style.width = `${easeInOut(p(t, a, a + .35)) * w}px` });
+  [["tc1", 5.6], ["tc2", 5.8]].forEach(([id, a]) => { const w = $(id).previousElementSibling.offsetWidth; $(id).style.width = `${easeInOut(p(t, a, a + .3)) * w}px` });
+  sube($("resumen"), t, 6.0, .3, 40);
+  pop($("sSi"), t, 5.0, .3); pop($("sNo"), t, 6.0, .3);
+  $("sSi").style.transform += " rotate(6deg)"; $("sNo").style.transform += " rotate(-5deg)";
+
+  // examen: opciones, dedo y respuesta
+  ["o1", "o2", "o3"].forEach((id, i) => sube($(id), t, 6.9 + i * .15, .35, 40));
+  const dedo = $("dedo"), kd = easeInOut(p(t, 7.7, 8.4));
+  // el dedo va hasta el centro de la opción b)
+  const o2 = $("o2"), fin = { x: o2.offsetLeft + 300, y: o2.offsetTop + o2.offsetHeight / 2 };
+  dedo.style.left = `${fin.x - 60 + (1 - kd) * 140}px`; dedo.style.top = `${fin.y - 60 + (1 - kd) * 420}px`;
+  dedo.style.opacity = t > 7.6 && t < 9.0 ? 1 : 0;
+  const toque = p(t, 8.45, 8.7); dedo.style.transform = `scale(${1 - .25 * Math.sin(toque * Math.PI)})`;
+  $("o2").classList.toggle("bien", t > 8.55);
+  if (t > 8.55) $("o2").style.transform = `scale(${1 + .05 * Math.sin(p(t, 8.55, 8.85) * Math.PI)})`;
+  $("reloj").textContent = `⏱ 14:${String(32 - Math.floor(Math.max(0, t - 6.6))).padStart(2, "0")}`;
+
+  // nota: contador y sello
+  const kn = easeOut(p(t, 9.7, 10.9));
+  $("numero").textContent = (7.8 * kn).toFixed(1).replace(".", ",");
+  const ks = p(t, 10.95, 11.2); $("selNota").style.opacity = ks > 0 ? 1 : 0;
+  $("selNota").style.transform = `scale(${ks > 0 ? 2.2 - 1.2 * easeOut(ks) : 2}) rotate(-6deg)`;
+  sube($("repasa"), t, 11.3, .4, 40);
+
+  // 6. cierre (12,3 – 15 s)
+  $("e6").style.opacity = p(t, 12.3, 12.6);
+  pop($("logoFin"), t, 12.4, .45); sube($("lemaFin"), t, 12.9); sube($("chipsFin"), t, 13.3); pop($("ctaFin"), t, 13.7, .4);
+  $("ctaFin").style.transform += ` scale(${1 + .04 * Math.sin(Math.max(0, t - 14.1) * 8)})`;
+};
+window.pintar(0);
+</script>
+</body>
+</html>
