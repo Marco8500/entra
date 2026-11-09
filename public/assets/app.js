@@ -1260,9 +1260,10 @@ async function afterLogin(){
   go("home");
   if (q.get("pago") === "ok") { flash("¡Ya eres Pro! Puede tardar unos segundos en aparecer.", "notice"); esperarPro() }
   if (q.get("pro") === "1" && S.cuenta?.plan !== "pro") pagar("suscribir");
+  if (q.get("pase") === "1" && S.cuenta?.plan !== "pro") pagar("pase"); // botón "Comprar el pase" de la portada
   if (invitado) flash("Te ha invitado un amigo 🎁 Cuando hagas tu primer simulacro, ganáis los dos 1 simulacro y 10 páginas extra.", "notice");
   irA(q.get("ir"));
-  if (q.has("pago") || q.has("pro") || q.has("ir") || q.has("r")) history.replaceState(null, "", "/app");
+  if (q.has("pago") || q.has("pro") || q.has("pase") || q.has("ir") || q.has("r")) history.replaceState(null, "", "/app");
 }
 // El webhook de Stripe puede llegar unos segundos después de volver del pago
 async function esperarPro(){
