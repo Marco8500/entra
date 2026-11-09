@@ -8,9 +8,9 @@ const paso = (m) => console.log("✔", m), falla = (m) => { throw new Error(m) }
   await ctx.route(/fonts\.(googleapis|gstatic)\.com|cdnjs/, (r) => r.fulfill({ body: "" }));
   const p = await ctx.newPage(); p.setDefaultTimeout(40000); const errores = []; p.on("pageerror", (e) => errores.push(e.message));
   await p.goto(APP + "/");
-  for (const t of ["Tus apuntes", "Tu simulacro", "Cómo funciona", "Pase de examen", "Precios"]) if (!(await p.textContent("main")).includes(t)) falla(`falta "${t}" en la portada`);
+  for (const t of ["Sube tus apuntes", "Haz el examen", "Mira tu nota", "Pase de examen", "Precios"]) if (!(await p.textContent("main")).includes(t)) falla(`falta "${t}" en la portada`);
   if (await p.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)) falla("la portada desborda en móvil");
-  paso(`portada en móvil: concepto, pasos y 3 precios (${(await p.textContent("#precioPase")).trim()} / ${(await p.textContent("#precio")).trim()}) sin desbordar`);
+  paso(`portada en móvil: apuntes → examen → nota y 3 precios (${(await p.textContent("#precioPase")).trim()} / ${(await p.textContent("#precio")).trim()}) sin desbordar`);
   await p.click("text=Comprar el pase");
   await p.waitForSelector("#enviar");
   await p.fill("#email", `portada${Date.now()}@test.local`); await p.fill("#clave", "MiClave2026"); await p.check("#acepto"); await p.click("#enviar");

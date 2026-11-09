@@ -18,93 +18,59 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Caveat:wght@600;700&display=swap">
 <link rel="stylesheet" href="/assets/style.css">
 <style>
-/* ===== portada: el concepto "tus apuntes → tu examen → tu nota" ===== */
-.top .nav .btn-ghost{display:inline-flex}
+/* ===== portada mínima: se entiende de un vistazo (apuntes → examen → nota) ===== */
 @media (max-width:640px){.top .nav .btn-ghost{display:none}.top{flex-wrap:nowrap}}
-.hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:40px;align-items:center;padding-block:20px 8px}
-@media (max-width:860px){.hero{grid-template-columns:1fr;gap:28px}}
-.hero h1{font-size:clamp(36px,6.2vw,60px);font-weight:800;letter-spacing:-.03em}
-.hero .lead{font-size:19px;color:var(--ink-2);max-width:46ch;margin-top:16px}
-.hero .cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
-.hero .cta .btn{flex:0 1 auto}
-.garantias{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:14px;font-size:14px;color:var(--ink-2);padding:0;list-style:none}
-.garantias li::before{content:"✓ ";color:var(--ok);font-weight:700}
-.kicker{font-family:var(--f-hand);font-weight:700;color:var(--margin);font-size:26px;transform:rotate(-3deg);display:inline-block;margin-bottom:6px}
+.hero{display:flex;flex-direction:column;align-items:center;text-align:center;gap:18px;padding-block:36px 8px}
+.hero h1{font-size:clamp(38px,7vw,68px);font-weight:800;letter-spacing:-.03em;max-width:15ch}
+.hero .lead{font-size:clamp(17px,2.2vw,20px);color:var(--ink-2);max-width:40ch}
+.hero .btn{font-size:18px;padding:14px 26px}
+.hero .nota-cta{font-size:14px;color:var(--ink-2);margin-top:-8px}
 
-/* transformación: apuntes → simulacro → nota */
-.flujo{display:flex;flex-direction:column;gap:0;max-width:460px;width:100%;justify-self:center}
-.paso-tag{font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:var(--ink-2);display:flex;align-items:center;gap:8px}
-.paso-tag b{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--ink);color:var(--sheet);font-size:12px;letter-spacing:0}
-.cuaderno{transform:rotate(-1.5deg);gap:6px;padding-top:18px;padding-bottom:18px;
-  background-image:repeating-linear-gradient(transparent 0 27px, var(--rule) 27px 28px);background-position:0 14px}
-.cuaderno .linea{font-family:var(--f-hand);font-size:22px;line-height:28px;color:var(--ink)}
-.cuaderno .fuera{text-decoration:line-through;text-decoration-color:var(--margin);color:var(--ink-2);opacity:.75}
-.marca{font-family:var(--f-hand);font-weight:700;font-size:20px;padding:0 8px;border-radius:6px;margin-left:6px;white-space:nowrap}
-.marca.si{background:var(--hl);color:var(--hl-ink)}
-.marca.no{border:2px solid var(--margin);color:var(--margin)}
-.flecha{display:flex;align-items:center;gap:10px;padding:10px 0 10px 34px;font-family:var(--f-hand);font-size:22px;font-weight:700;color:var(--blue)}
-.flecha svg{flex:none}
-.examen{transform:rotate(1deg);gap:10px}
-.examen .qt{font-size:16px;font-weight:700}
-.examen .opt{padding:7px 12px;cursor:default}
-.examen .fb{font-size:13px}
-.nota{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-top:1px dashed var(--rule);padding-top:10px}
-.nota .num{font-family:var(--f-display);font-weight:800;font-size:30px;line-height:1}
-.nota .num small{font-size:15px;color:var(--ink-2)}
-.sello{font-family:var(--f-hand);font-weight:700;font-size:22px;color:var(--ok);border:2.5px solid var(--ok);border-radius:8px;padding:0 8px;transform:rotate(-4deg)}
+/* las 3 imágenes */
+.tres{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;align-items:center;gap:10px;width:100%;max-width:820px;margin-top:10px}
+.tres .flecha{font-size:30px;color:var(--blue);font-weight:800}
+.cuadro{background:var(--sheet);border:1px solid var(--rule);border-radius:16px;padding:16px 14px;display:flex;flex-direction:column;align-items:center;gap:10px;min-width:0;box-shadow:0 6px 20px rgba(22,33,61,.06)}
+.cuadro .dibujo{width:100%;height:96px;border-radius:10px;display:flex;flex-direction:column;justify-content:center;gap:6px;padding:10px 12px;background:var(--paper);text-align:left;overflow:hidden}
+.cuadro b{font-family:var(--f-display);font-size:18px}
+/* 1: hoja de apuntes */
+.d-apuntes{background-image:repeating-linear-gradient(transparent 0 19px, var(--rule) 19px 20px)!important;border-left:3px solid var(--margin)}
+.d-apuntes span{font-family:var(--f-hand);font-size:17px;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.d-apuntes .si{background:var(--hl);color:var(--hl-ink);border-radius:4px;padding:0 4px;font-weight:700}
+/* 2: pregunta */
+.d-examen .op{font-size:13px;border:1.5px solid var(--rule);border-radius:7px;padding:3px 8px;background:var(--sheet)}
+.d-examen .op.ok{border-color:var(--ok);background:var(--ok-soft)}
+/* 3: nota */
+.d-nota{align-items:center;text-align:center}
+.d-nota .num{font-family:var(--f-display);font-weight:800;font-size:44px;line-height:1}
+.d-nota .num small{font-size:18px;color:var(--ink-2)}
+.d-nota .sello{font-family:var(--f-hand);font-weight:700;font-size:20px;color:var(--ok);border:2px solid var(--ok);border-radius:7px;padding:0 8px;transform:rotate(-4deg)}
+@media (max-width:640px){
+  .tres{grid-template-columns:1fr;gap:4px;max-width:340px}
+  .tres .flecha{transform:rotate(90deg);justify-self:center;font-size:24px;line-height:1}
+  .cuadro{flex-direction:row;padding:10px;gap:12px;text-align:left}
+  .cuadro .dibujo{width:116px;height:72px;flex:none;padding:6px 8px;gap:3px}
+  .d-apuntes span{font-size:14px;line-height:15px}.d-apuntes{background-image:repeating-linear-gradient(transparent 0 14px, var(--rule) 14px 15px)!important}
+  .d-examen .op{font-size:11px;padding:1px 6px}
+  .d-nota .num{font-size:30px}.d-nota .sello{font-size:15px}
+  .cuadro b{font-size:17px}
+}
 
-/* para quién */
-.para{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;padding-top:28px;color:var(--ink-2);font-size:15px}
-.para span.chip{background:var(--sheet);border:1px solid var(--rule);border-radius:99px;padding:5px 12px;color:var(--ink);font-weight:700;font-size:14px}
-
-section.block{padding-block:48px 0;display:flex;flex-direction:column;gap:18px}
-section.block > h2{font-size:clamp(28px,4.5vw,40px);letter-spacing:-.02em}
-section.block > .sub{max-width:62ch;color:var(--ink-2);margin-top:-6px}
-
-/* cómo funciona: 3 pasos con su dibujo */
-.pasos3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
-@media (max-width:820px){.pasos3{grid-template-columns:1fr}}
-.paso h3{font-size:20px}
-.paso .num{font-family:var(--f-hand);font-weight:700;font-size:40px;line-height:1;color:var(--blue)}
-.paso .mini{background:var(--paper);border:1px dashed var(--rule);border-radius:12px;padding:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:14px;min-height:64px}
-.paso .mini .pill{background:var(--sheet);border:1px solid var(--rule);border-radius:8px;padding:4px 9px;font-weight:700}
-.paso .mini .grande{font-family:var(--f-display);font-weight:800;font-size:28px;line-height:1}
-
-/* antes / con Entra */
-.vs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
-@media (max-width:700px){.vs{grid-template-columns:1fr}}
-.vs ul{margin:0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:10px}
-.vs li{padding-left:28px;position:relative}
-.vs .antes li::before{content:"✗";position:absolute;left:4px;color:var(--bad);font-weight:700}
-.vs .con li::before{content:"✓";position:absolute;left:4px;color:var(--ok);font-weight:700}
-.vs .con{outline:3px solid var(--hl);outline-offset:-1px}
-
-/* herramientas extra */
-.tools{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
-@media (max-width:700px){.tools{grid-template-columns:1fr}}
-.tool{display:flex;flex-direction:column;gap:12px}
-.tool .btn{margin-top:auto;align-self:flex-start}
-.tool h3{font-size:20px}
-.tool-demo{display:flex;flex-direction:column;gap:2px;background:var(--paper);border:1px dashed var(--rule);border-radius:12px;padding:10px 12px}
-.cuenta-demo{flex-direction:row;align-items:center;gap:12px}
-.cuenta-demo .dias{font-family:var(--f-display);font-weight:800;font-size:42px;line-height:1;color:var(--blue)}
-.tool-demo.metodos{flex-direction:row;flex-wrap:wrap;gap:6px}
-.tool-demo.metodos span{font-size:13px;padding:3px 9px;border-radius:99px;background:var(--blue-soft);color:var(--ink)}
-
-.price{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
-@media (max-width:820px){.price{grid-template-columns:1fr;max-width:460px}}
-.price .amount{font-family:var(--f-display);font-weight:800;font-size:40px;line-height:1}
-.price .amount small{font-family:var(--f-body);font-weight:400;font-size:15px;color:var(--ink-2)}
-.price ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
-.price .btn{margin-top:auto}
-.price .best{outline:3px solid var(--hl);outline-offset:-1px}
-.price .etq{position:absolute;top:-12px;right:14px;background:var(--hl);color:var(--hl-ink);font-weight:700;font-size:12px;border-radius:99px;padding:2px 10px}
+section.block{padding-block:56px 0;display:flex;flex-direction:column;gap:16px;align-items:center;text-align:center}
+section.block > h2{font-size:clamp(26px,4vw,34px);letter-spacing:-.02em}
+.top-portada{width:100%;max-width:520px;text-align:left}
+.price{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;width:100%;max-width:820px}
+@media (max-width:700px){.price{grid-template-columns:1fr;max-width:400px}}
+.plan{background:var(--sheet);border:1px solid var(--rule);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:6px;align-items:center;position:relative}
+.plan .amount{font-family:var(--f-display);font-weight:800;font-size:34px;line-height:1}
+.plan .amount small{font-family:var(--f-body);font-weight:400;font-size:14px;color:var(--ink-2)}
+.plan .btn{margin-top:8px;width:100%}
+.plan.best{outline:3px solid var(--hl);outline-offset:-1px}
+.plan .etq{position:absolute;top:-11px;background:var(--hl);color:var(--hl-ink);font-weight:700;font-size:12px;border-radius:99px;padding:2px 10px}
+.faq{align-items:stretch!important;text-align:left!important;max-width:680px;margin:0 auto;width:100%}
+.faq h2{text-align:center}
 .faq details{border-bottom:1px dashed var(--rule);padding-block:12px}
 .faq summary{cursor:pointer;font-weight:700;font-size:17px}
-.faq details p{color:var(--ink-2);margin-top:8px;max-width:68ch}
-.final{align-items:center;text-align:center;padding:34px 22px}
-.final::before{display:none}
-.final h2{font-size:clamp(26px,4vw,36px)}
+.faq details p{color:var(--ink-2);margin-top:8px}
 </style>
 </head>
 <body>
@@ -116,159 +82,50 @@ section.block > .sub{max-width:62ch;color:var(--ink-2);margin-top:-6px}
 
   <main>
     <section class="hero">
-      <div>
-        <span class="kicker">✱ Entra en el examen</span>
-        <h1>Haz una foto a tus apuntes y <span class="hl">practica el examen</span> antes del examen.</h1>
-        <p class="lead">Entra lee tus apuntes, te pregunta <b>solo lo que entra</b>, te corrige con nota como tu profe y te dice qué repasar. En un minuto.</p>
-        <div class="cta"><a class="btn btn-primary" href="/app">Hacer mi primer simulacro gratis</a><a class="btn btn-ghost" href="#como">Ver cómo funciona</a></div>
-        <ul class="garantias"><li>3 simulacros gratis al mes</li><li>Sin tarjeta</li><li>Fotos, PDF o texto</li></ul>
-      </div>
+      <h1>Tus apuntes se convierten en <span class="hl">tu examen</span>.</h1>
+      <p class="lead">Haz una foto a tus apuntes. Entra te hace un examen de práctica, te pone nota y te dice qué repasar.</p>
 
-      <div class="flujo" aria-label="Ejemplo: de tus apuntes a tu simulacro">
-        <span class="paso-tag"><b>1</b> Tus apuntes</span>
-        <div class="sheet cuaderno" style="margin-top:8px">
-          <span class="eyebrow">PRL · Unidad 3 · El ruido</span>
-          <p class="linea">El ruido continuo se mide con el sonómetro.<span class="marca si">✱ entra</span></p>
-          <p class="linea">El discontinuo, con el dosímetro.</p>
-          <p class="linea"><s class="fuera">Historia del sonómetro (1923…)</s><span class="marca no">no entra</span></p>
+      <div class="tres" id="como" aria-label="Cómo funciona: apuntes, examen, nota">
+        <div class="cuadro">
+          <div class="dibujo d-apuntes" aria-hidden="true"><span>El ruido continuo…</span><span><span class="si">✱ entra</span> sonómetro</span><span>Discontinuo → dosí…</span></div>
+          <b>📷 Sube tus apuntes</b>
         </div>
-        <div class="flecha" aria-hidden="true">
-          <svg width="26" height="34" viewBox="0 0 26 34" fill="none"><path d="M13 2v26M4 20l9 10 9-10" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Entra te hace el examen
+        <span class="flecha" aria-hidden="true">→</span>
+        <div class="cuadro">
+          <div class="dibujo d-examen" aria-hidden="true"><span class="op">a) Sonómetro</span><span class="op ok">b) Dosímetro ✓</span><span class="op">c) Luxómetro</span></div>
+          <b>📝 Haz el examen</b>
         </div>
-        <span class="paso-tag"><b>2</b> Tu simulacro</span>
-        <div class="sheet examen" style="margin-top:8px">
-          <p class="qt">¿Con qué aparato se mide el ruido discontinuo?</p>
-          <div class="opts">
-            <div class="opt"><span class="letter">a)</span><span>Sonómetro</span></div>
-            <div class="opt right"><span class="letter">b)</span><span>Dosímetro</span></div>
-            <div class="opt"><span class="letter">c)</span><span>Luxómetro</span></div>
-          </div>
-          <p class="fb">Sale de tus apuntes, Unidad 3. <b>Truco:</b> discontinuo → dosímetro.</p>
-          <div class="nota"><span class="num">7,8 <small>/10</small></span><span class="sello">Notable</span><span class="small muted">Repasa: 2 temas</span></div>
+        <span class="flecha" aria-hidden="true">→</span>
+        <div class="cuadro">
+          <div class="dibujo d-nota" aria-hidden="true"><span class="num">7,8<small>/10</small></span><span class="sello">Notable</span></div>
+          <b>✅ Mira tu nota</b>
         </div>
       </div>
-    </section>
 
-    <div class="para"><span>Para</span><span class="chip">FP</span><span class="chip">Bachillerato</span><span class="chip">Universidad</span><span class="chip">Oposiciones</span><span>· asignaturas de teoría</span></div>
-
-    <section class="block" id="como">
-      <h2>Cómo funciona</h2>
-      <p class="sub">Tres pasos. Tú solo subes los apuntes y respondes; lo demás lo hace Entra.</p>
-      <div class="pasos3">
-        <article class="sheet paso">
-          <span class="num">1</span>
-          <h3>Sube tus apuntes</h3>
-          <p class="muted">Haz fotos del cuaderno o del libro, sube el PDF o pega el texto. Lee también la letra a mano.</p>
-          <div class="mini"><span class="pill">📷 Fotos</span><span class="pill">📄 PDF</span><span class="pill">✍️ Texto</span></div>
-        </article>
-        <article class="sheet paso">
-          <span class="num">2</span>
-          <h3>Marca lo que entra</h3>
-          <p class="muted">Entra separa tus apuntes por temas y detecta lo que marcaste. Quita lo que tu profe no va a preguntar.</p>
-          <div class="mini"><span class="stampmini">entra</span><span class="stampmini">no entra</span><span class="small muted">→ tú decides</span></div>
-        </article>
-        <article class="sheet paso">
-          <span class="num">3</span>
-          <h3>Haz el examen y mira tu nota</h3>
-          <p class="muted">Test y preguntas cortas con tiempo, como el día del examen. Te corrige, te pone nota y te prepara un repaso de lo que fallas.</p>
-          <div class="mini"><span class="grande">7,8</span><span class="small"><b>/10 · Notable</b><br><span class="muted">Repasa 2 temas · vídeos y PDF</span></span></div>
-        </article>
-      </div>
-      <div class="row" style="max-width:520px"><a class="btn btn-primary" href="/app">Probar con mis apuntes</a></div>
-    </section>
-
-    <section class="block">
-      <h2>¿Por qué no estudiar como siempre?</h2>
-      <div class="vs">
-        <article class="sheet antes">
-          <span class="eyebrow">Estudiar como siempre</span>
-          <ul>
-            <li>Lees y relees los apuntes y crees que te lo sabes.</li>
-            <li>Estudias temas que luego no entran.</li>
-            <li>Los tests de internet no son de tu temario.</li>
-            <li>No sabes qué nota sacarías hasta el día del examen.</li>
-          </ul>
-        </article>
-        <article class="sheet con">
-          <span class="eyebrow">Con Entra</span>
-          <ul>
-            <li>Te examinas de verdad: recordar es lo que fija lo que estudias.</li>
-            <li>Solo te pregunta lo que entra, sacado de <b>tus</b> apuntes.</li>
-            <li>El formato de tu profe: número de test, cortas y tiempo.</li>
-            <li>Sabes tu nota antes del examen y qué repasar para subirla.</li>
-          </ul>
-        </article>
-      </div>
-    </section>
-
-    <section class="block" id="herramientas">
-      <h2>Y además, para organizarte</h2>
-      <div class="tools">
-        <article class="sheet tool">
-          <h3>📅 Cuenta atrás de tus exámenes</h3>
-          <p class="muted">Pon la fecha y te decimos qué hacer cada semana: cuándo estudiar, cuántos simulacros y qué repasar el día antes.</p>
-          <div class="tool-demo cuenta-demo"><span class="dias">12</span><span><b>días para tu examen</b><br><span class="small muted">PRL · viernes</span></span></div>
-          <a class="btn btn-ghost" href="/app?ir=planificador">Planificar mi examen</a>
-        </article>
-        <article class="sheet tool">
-          <h3>🧠 Tu método de estudio ideal</h3>
-          <p class="muted">8 preguntas rápidas y te decimos qué método te va mejor y cuánto estudiar cada día.</p>
-          <div class="tool-demo metodos"><span>🍅 Pomodoro</span><span>🔁 Repetición espaciada</span><span>🗣️ Feynman</span><span>🗺️ Esquemas</span></div>
-          <a class="btn btn-ghost" href="/app?ir=metodo">Descubrir mi método</a>
-        </article>
-      </div>
+      <a class="btn btn-primary" href="/app">Probar gratis con mis apuntes</a>
+      <p class="nota-cta">Gratis · Sin tarjeta · Fotos, PDF o texto</p>
     </section>
 
     <section class="block" id="ranking">
       <h2>🏆 Ranking de <span id="rkMes">este mes</span></h2>
-      <p class="sub">Haz un simulacro cada día, mantén tu racha 🔥 y sube puestos. Se reinicia el día 1.</p>
       <div class="top-portada" id="rkTop"><div class="vacio muted">Cargando el ranking…</div></div>
-      <div class="row" style="max-width:520px"><a class="btn btn-ghost" href="/app?ir=ranking">Apuntarme al ranking</a></div>
+      <a class="btn btn-ghost" href="/app?ir=ranking">Apuntarme al ranking</a>
     </section>
 
     <section class="block" id="precios">
       <h2>Precios</h2>
-      <p class="sub">Empieza gratis. Si tienes un examen cerca, el pase te da todo una semana sin suscripción.</p>
       <div class="price">
-        <article class="sheet">
-          <span class="eyebrow">Gratis</span>
-          <div class="amount">0 €</div>
-          <ul><li>3 simulacros al mes</li><li>25 páginas de apuntes al mes</li><li>Corrección con nota y repaso</li></ul>
-          <a class="btn btn-ghost" href="/app">Empezar gratis</a>
-        </article>
-        <article class="sheet best">
-          <span class="etq">Semana del examen</span>
-          <span class="eyebrow">Pase de examen</span>
-          <div class="amount"><span id="precioPase">1,99 €</span> <small>una vez</small></div>
-          <ul><li>Todo Pro durante 7 días</li><li>Pago único, no se renueva</li><li>Ideal para la semana antes del examen</li></ul>
-          <a class="btn btn-hl" href="/app?pase=1">Comprar el pase</a>
-        </article>
-        <article class="sheet">
-          <span class="eyebrow">Pro</span>
-          <div class="amount"><span id="precio">3,99 €</span> <small>/mes</small></div>
-          <ul><li>60 simulacros al mes</li><li>300 páginas de apuntes al mes</li><li>Exámenes largos (39 test + 5 cortas y más)</li><li>Cancela cuando quieras</li></ul>
-          <a class="btn btn-primary" href="/app?pro=1">Pasarme a Pro</a>
-        </article>
+        <div class="plan"><span class="eyebrow">Gratis</span><div class="amount">0 €</div><span class="small muted">3 exámenes al mes</span><a class="btn btn-ghost" href="/app">Empezar</a></div>
+        <div class="plan best"><span class="etq">Semana del examen</span><span class="eyebrow">Pase de examen</span><div class="amount"><span id="precioPase">1,99 €</span></div><span class="small muted">Todo Pro durante 7 días · pago único</span><a class="btn btn-hl" href="/app?pase=1">Comprar el pase</a></div>
+        <div class="plan"><span class="eyebrow">Pro</span><div class="amount"><span id="precio">3,99 €</span> <small>/mes</small></div><span class="small muted">60 exámenes al mes · cancela cuando quieras</span><a class="btn btn-primary" href="/app?pro=1">Pasarme a Pro</a></div>
       </div>
     </section>
 
     <section class="block faq">
       <h2>Preguntas frecuentes</h2>
-      <details><summary>¿De dónde salen las preguntas?</summary><p>Solo de los apuntes que subes. Entra no se inventa temario: cada respuesta trae su explicación para que la compruebes con tus apuntes.</p></details>
-      <details><summary>¿Qué pasa con las fotos y PDF de mis apuntes?</summary><p>Se usan solo para leer el contenido y no se guardan. Guardamos el texto de los temas para que puedas repetir simulacros. Puedes borrarlo cuando quieras.</p></details>
-      <details><summary>¿Sirve para cualquier asignatura?</summary><p>Funciona mejor con asignaturas de teoría: FP, bachillerato, universidad y oposiciones. Para problemas de matemáticas o física todavía no es lo ideal.</p></details>
-      <details><summary>¿Las preguntas pueden tener errores?</summary><p>Se crean solo con tus apuntes, pero la IA puede equivocarse. Cada respuesta trae su explicación para que lo compruebes.</p></details>
-      <details><summary>¿Hay edad mínima?</summary><p>Sí, 16 años.</p></details>
-      <details><summary>¿Cómo cancelo Pro?</summary><p>Desde tu cuenta, en "Gestionar suscripción". Sigues con Pro hasta el final del periodo pagado. El pase de examen no se renueva: no hay que cancelarlo.</p></details>
-    </section>
-
-    <section class="block">
-      <div class="sheet final">
-        <h2>¿Tienes un examen pronto?</h2>
-        <p class="muted">Sube tus apuntes y en un minuto sabes qué nota sacarías.</p>
-        <a class="btn btn-primary" href="/app">Hacer mi primer simulacro gratis</a>
-      </div>
+      <details><summary>¿De dónde salen las preguntas?</summary><p>Solo de los apuntes que subes. Puedes marcar lo que entra y lo que no, y cada respuesta trae su explicación.</p></details>
+      <details><summary>¿Para qué estudios sirve?</summary><p>FP, bachillerato, universidad y oposiciones. Funciona mejor con asignaturas de teoría que con problemas de matemáticas.</p></details>
+      <details><summary>¿Qué pasa con mis fotos?</summary><p>Se usan solo para leer el contenido y no se guardan. Guardamos el texto de los temas para que puedas repetir exámenes, y puedes borrarlo cuando quieras.</p></details>
     </section>
   </main>
 
